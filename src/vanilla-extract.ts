@@ -56,7 +56,10 @@ export class VanillaExtract {
       ts,
     ).compilerHost
 
-    for (const file of this.fileNames) {
+    const vanillaFiles = this.#tsConfig.fileNames.filter((file) =>
+      cssFileFilter.test(file),
+    )
+    for (const file of vanillaFiles) {
       this.#system.writeFile(file, ts.sys.readFile(file)!)
     }
   }
@@ -66,15 +69,10 @@ export class VanillaExtract {
     return this.#tsConfig.options
   }
 
-  /** vanilla-extract file names */
-  get fileNames(): string[] {
-    return this.#tsConfig.fileNames.filter((file) => cssFileFilter.test(file))
-  }
-
   compile(compilerOptions: ts.CompilerOptions = this.options) {
     const program = ts.createProgram({
       options: compilerOptions,
-      rootNames: this.fileNames,
+      rootNames: this.#tsConfig.fileNames,
       host: this.#host,
     })
     const output = new Map<string, string>()
