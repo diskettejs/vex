@@ -1,23 +1,24 @@
 {
-  "name": "tsc-ve",
+  "name": "@diskette/vex",
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "tsc --watch",
-    "build": "tsc",
-    "typecheck": "tsc --noEmit"
+    "build": "rm -rf && tsc",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "pnpm build"
   },
-  "bin": "./dist/cli.js",
+  "bin": {
+    "vex": "./dist/cli.js"
+  },
   "files": [
     "dist"
   ],
+  "exports": "./dist/vanilla-vfs.js",
   "dependencies": {
-    "@diskette/fs": "^0.6.1",
     "@typescript/vfs": "^1.6.1",
-    "@vanilla-extract/integration": "^8.0.4",
-    "dedent": "^1.6.0",
+    "@vanilla-extract/integration": "8.0.4",
     "eval": "^0.1.8",
-    "javascript-stringify": "^2.1.0",
     "meow": "^13.2.0",
     "tiny-invariant": "^1.3.3"
   },
@@ -32,16 +33,15 @@
     "@vanilla-extract/css": "^1",
     "typescript": "^5"
   },
-  "homepage": "https://github.com/tsc-ve",
+  "homepage": "https://github.com/diskette/vex",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/tsc-ve.git"
+    "url": "git+https://github.com/diskette/vex.git"
   },
   "keywords": [
     "vanilla-extract",
     "css"
   ],
-  "author": "Daniel Sandiego",
   "license": "MIT",
   "packageManager": "pnpm@10.12.1",
   "prettier": {

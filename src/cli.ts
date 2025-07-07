@@ -1,18 +1,22 @@
 #!/usr/bin/env node
 
-import { disk } from '@diskette/fs/node'
 import type { IdentifierOption } from '@vanilla-extract/integration'
 import meow from 'meow'
-import { VanillaVfs } from './vanilla-vfs.ts'
+import { basename } from 'node:path'
+import invariant from 'tiny-invariant'
+import ts from 'typescript'
+import { readConfig } from './utils.ts'
+import { VanillaExtract } from './vanilla-extract.ts'
 
 const cli = meow(
   `
 	Usage
-	  $ tsc-ve
+	  $ vex
 
 	Options
     --ident, -i  Identifiers format
     --css-ext
+    --imports
 `,
   {
     importMeta: import.meta,
@@ -25,21 +29,39 @@ const cli = meow(
       cssExt: {
         type: 'string',
       },
+      imports: {
+        type: 'boolean',
+        default: false,
+      },
+      tsconfig: {
+        type: 'string',
+      },
     },
   },
 )
 
-const vfs = new VanillaVfs({
-  identifier: cli.flags.ident as IdentifierOption,
-  cssExt: cli.flags.cssExt,
-})
-
-const files = vfs.compile()
-const promises = []
-for (const [path, content] of files) {
-  console.log(path, content)
-  promises.push(disk.write(path, content))
+let config
+if (cli.flags.tsconfig) {
+  const configFile = ts.findConfigFile(
+    ts.sys.resolvePath(cli.flags.tsconfig),
+    ts.sys.fileExists,
+    basename(cli.flags.tsconfig),
+  )
+  invariant(configFile, `Could not find config: ${cli.flags.tsconfig}`)
+  config = readConfig(configFile)
 }
 
-await Promise.all(promises)
-console.log(`persisted ${files.size} files`)
+const vex = new VanillaExtract(
+  {
+    identifier: cli.flags.ident as IdentifierOption,
+    cssExt: cli.flags.cssExt,
+    imports: cli.flags.imports,
+  },
+  config,
+)
+
+const files = vex.compile()
+
+for (const [path, content] of files) {
+  ts.sys.writeFile(path, content)
+}

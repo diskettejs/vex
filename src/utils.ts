@@ -1,51 +1,35 @@
-import { dirname } from 'node:path'
+import { dirname, relative } from 'node:path'
 import invariant from 'tiny-invariant'
 import ts from 'typescript'
 
 export function getTsConfig({
   searchPath = process.cwd(),
-  configName,
 }: {
   searchPath?: string
-  configName?: string
+  tsconfigPath?: string
 } = {}): ts.ParsedCommandLine {
-  const tsconfigPath = ts.findConfigFile(
-    searchPath,
-    ts.sys.fileExists,
-    configName,
-  )
+  const configPath = ts.findConfigFile(searchPath, ts.sys.fileExists)
 
-  invariant(tsconfigPath, 'Could not find a valid tsconfig')
-  const tsconfigFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile)
+  invariant(configPath, 'Could not find a valid tsconfig')
 
-  const parsedTsconfig = ts.parseJsonConfigFileContent(
-    tsconfigFile.config,
-    ts.sys,
-    dirname(tsconfigPath),
-    undefined,
-    tsconfigPath,
-  )
-
-  return parsedTsconfig
+  return readConfig(configPath)
 }
 
-/** From https://github.com/sindresorhus/is/blob/main/source/index.ts#L653 */
-export function isPlainObject<Value = unknown>(
-  value: unknown,
-): value is Record<PropertyKey, Value> {
-  // From: https://github.com/sindresorhus/is-plain-obj/blob/main/index.js
-  if (typeof value !== 'object' || value === null) {
-    return false
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-  const prototype = Object.getPrototypeOf(value)
-
-  return (
-    (prototype === null ||
-      prototype === Object.prototype ||
-      Object.getPrototypeOf(prototype) === null) &&
-    !(Symbol.toStringTag in value) &&
-    !(Symbol.iterator in value)
+export function readConfig(configPath: string): ts.ParsedCommandLine {
+  const tsconfigFile = ts.readConfigFile(configPath, ts.sys.readFile)
+  return ts.parseJsonConfigFileContent(
+    tsconfigFile.config,
+    ts.sys,
+    dirname(configPath),
+    undefined,
+    configPath,
   )
+}
+
+export function pathFrom(from: string, to: string) {
+  const relativePath = relative(dirname(from), to)
+  if (!relativePath.startsWith('../')) {
+    return `./${relativePath}`
+  }
+  return relativePath
 }
