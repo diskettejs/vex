@@ -1,6 +1,6 @@
 # @diskette/vex
 
-A TypeScript-first build tool for [@vanilla-extract](https://vanilla-extract.style/) that leverages your existing `tsconfig.json` configuration.
+A TypeScript build tool that respects your existing TS configuration and project structure, with first-class support for [@vanilla-extract](https://vanilla-extract.style/) files (`.css.ts` and `.css.js`).
 
 ## Installation
 
@@ -8,16 +8,26 @@ Note: `@vanilla-extract/css` is a peer dependency and must be installed.
 
 ```bash
 npm install @diskette/vex
-# or
+```
+
+```bash
 pnpm add @diskette/vex
 ```
 
 ## CLI Usage
 
-`vex` automatically discovers and compiles all vanilla-extract files (`.css.ts` and `.css.js`) in your TypeScript project:
+```bash
+npx @diskette/vex
+```
+
+Or add to `package.json` scripts
 
 ```bash
-npx vex
+{
+  "scripts": {
+    "build:css": "vex"
+  }
+}
 ```
 
 ### CLI Options
@@ -32,7 +42,7 @@ npx vex
 ### Examples
 
 ```bash
-# Basic compilation
+# Basic compilation. Expects a `tsconfig.json` in the project root dir.
 vex
 
 # Use debug identifiers for development
@@ -41,8 +51,11 @@ vex --ident debug
 # Custom CSS file extension
 vex --css-ext .module.css
 
-# Include CSS imports in output
+# Include CSS imports in the JS output
 vex --imports
+
+# CSS imports are are not included in the JS output
+vex --no-imports
 
 # Use specific tsconfig file
 vex --tsconfig ./tsconfig.build.json
@@ -50,15 +63,6 @@ vex --tsconfig ./tsconfig.build.json
 # Combine options
 vex --ident debug --imports --css-ext .styles.css
 ```
-
-## TypeScript Integration
-
-`vex` automatically reads your `tsconfig.json` configuration and respects:
-
-- **File inclusion/exclusion patterns** - Only processes vanilla-extract files that match your TypeScript project settings
-- **Compiler options** - Uses your existing TypeScript configuration for compilation
-- **Path mapping** - Supports TypeScript path aliases and baseUrl
-- **Output directory** - Follows your `outDir` setting
 
 ### Project Structure Example
 
@@ -87,82 +91,6 @@ dist/                      # Based on your tsconfig outDir
     ├── vars.css.js
     └── vars.ts.vanilla.css
 ```
-
-## Programmatic Usage
-
-You can also use `VanillaExtract` programmatically in your build scripts:
-
-```typescript
-import { VanillaExtract } from '@diskette/vex'
-
-// Use default tsconfig.json
-const vex = new VanillaExtract({
-  identifier: 'debug',
-  cssExt: '.module.css',
-  imports: true,
-})
-
-// Or provide custom TypeScript config
-import { readConfig } from '@diskette/vex/utils'
-const tsConfig = readConfig('./tsconfig.build.json')
-const vex = new VanillaExtract(
-  {
-    identifier: 'short',
-    imports: false,
-  },
-  tsConfig,
-)
-
-// Compile and get file contents
-const files = vex.compile()
-
-// files is a Map<string, string> of file paths to content
-for (const [filePath, content] of files) {
-  console.log(`Generated: ${filePath}`)
-  // Write files or process further...
-}
-```
-
-### VanillaExtract Options
-
-```typescript
-interface VanillaOptions {
-  identifier?: 'short' | 'debug' // CSS class name format
-  cssExt?: string // Custom CSS file extension
-  imports?: boolean // Include CSS imports in JS output
-}
-```
-
-## CSS Import Generation
-
-When `--imports` is enabled, `vex` automatically generates CSS import statements:
-
-**Input** (`Button.css.ts`):
-
-```typescript
-import { style } from '@vanilla-extract/css'
-import './theme.css.ts' // Imports theme variables
-
-export const button = style({
-  padding: '8px 16px',
-  borderRadius: '4px',
-})
-```
-
-**Output** (`Button.css.js`):
-
-```javascript
-import './theme.ts.vanilla.css' // Auto-generated CSS import
-
-export const button = '_button_1a2b3c'
-```
-
-This ensures CSS dependencies are properly loaded when using the compiled JavaScript.
-
-## Identifier Formats
-
-- **`short`** (default): Generates minified class names like `_button_1a2b3c`
-- **`debug`**: Generates readable class names like `Button_button_1a2b3c` for easier debugging
 
 ## License
 

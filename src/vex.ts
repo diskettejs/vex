@@ -1,7 +1,3 @@
-import {
-  createFSBackedSystem,
-  createVirtualCompilerHost,
-} from '@typescript/vfs'
 import type { Adapter } from '@vanilla-extract/css'
 import { transformCss } from '@vanilla-extract/css/transformCss'
 import {
@@ -16,7 +12,7 @@ import { createRequire, isBuiltin } from 'node:module'
 import { join, parse } from 'node:path'
 import invariant from 'tiny-invariant'
 import ts from 'typescript'
-import { getTsConfig, pathFrom } from './utils.ts'
+import { pathFrom, readConfig } from './utils.ts'
 
 export type Css = Parameters<Adapter['appendCss']>[0]
 export type Composition = Parameters<Adapter['registerComposition']>[0]
@@ -24,20 +20,21 @@ export type Composition = Parameters<Adapter['registerComposition']>[0]
 /** See https://github.com/vanilla-extract-css/vanilla-extract/blob/master/packages/integration/src/processVanillaFile.ts#L110 */
 const originalNodeEnv = process.env.NODE_ENV
 
-export interface VanillaOptions {
+export interface VexOptions {
   identifier?: IdentifierOption
   cssExt?: string
   imports?: boolean
+  configPath?: string
 }
 
-export class VanillaExtract {
+export class Vex {
   #pkg = getPackageInfo()
+  #configPath: string
   #tsConfig: ts.ParsedCommandLine
-  #files = new Map<string, string>()
   #transformCache = new Map<string, string>()
-  #system: ts.System
+
+  #vanillaOptions: VexOptions
   #host: ts.CompilerHost
-  #vanillaOptions: VanillaOptions
 
   #cssScopes = new Map<string, { css: Css[]; imports: Set<string> }>()
   #localClassNames = new Set<string>()
@@ -45,23 +42,13 @@ export class VanillaExtract {
   #usedCompositions = new Set<string>()
   #require: NodeJS.Require
 
-  constructor(options: VanillaOptions = {}, tsConfig?: ts.ParsedCommandLine) {
+  constructor(options: VexOptions = {}) {
     this.#vanillaOptions = { imports: true, ...options }
-    this.#tsConfig = tsConfig ?? getTsConfig()
-    this.#require = createRequire(this.#pkg.path)
-    this.#system = this.#createSystem()
-    this.#host = createVirtualCompilerHost(
-      this.#system,
-      this.options,
-      ts,
-    ).compilerHost
+    this.#configPath = options.configPath ?? process.cwd()
+    this.#tsConfig = readConfig(this.#configPath)
 
-    const vanillaFiles = this.#tsConfig.fileNames.filter((file) =>
-      cssFileFilter.test(file),
-    )
-    for (const file of vanillaFiles) {
-      this.#system.writeFile(file, ts.sys.readFile(file)!)
-    }
+    this.#host = ts.createCompilerHost(this.#tsConfig.options)
+    this.#require = createRequire(this.#pkg.path)
   }
 
   /** Compiler options */
@@ -69,58 +56,100 @@ export class VanillaExtract {
     return this.#tsConfig.options
   }
 
-  compile(compilerOptions: ts.CompilerOptions = this.options) {
-    const program = ts.createProgram({
-      options: compilerOptions,
-      rootNames: this.#tsConfig.fileNames,
-      host: this.#host,
-    })
-    const output = new Map<string, string>()
-
-    program.emit(undefined, (path, data) => {
-      const cssScope = this.#cssScopes.get(path)
-      let content = data
-
-      if (cssScope) {
-        const css = transformCss({
-          localClassNames: Array.from(this.#localClassNames),
-          composedClassLists: this.#composedClassLists,
-          cssObjs: cssScope.css,
-        }).join('\n')
-        const cssOutputPath = this.getCssOutputPath(path)
-        output.set(cssOutputPath, css)
-
-        if (this.#vanillaOptions.imports) {
-          const cssImports = Array.from(cssScope.imports).map((importPath) => {
-            const scopeImport = this.getCssOutputPath(
-              this.getJsOutputPath(importPath)!,
-            )
-            return `import '${pathFrom(path, scopeImport)}';`
-          })
-          content = `${cssImports.join('\n')}\n\n${content}`
+  compile(options: ts.CompilerOptions = {}) {
+    const host: ts.CompilerHost = {
+      ...this.#host,
+      getSourceFile: (
+        fileName,
+        languageVersionOrOptions,
+        onError,
+        shouldCreateNewSourceFile,
+      ) => {
+        const source = this.#host.getSourceFile(
+          fileName,
+          languageVersionOrOptions,
+          onError,
+          shouldCreateNewSourceFile,
+        )
+        if (!cssFileFilter.test(fileName) || !source) {
+          return source
         }
-      }
+        const processed = this.#processVanillaFile(fileName, source.text)
 
-      output.set(path, content)
-    })
-
-    return output
-  }
-
-  #createSystem(): ts.System {
-    const system = createFSBackedSystem(this.#files, this.#pkg.dirname, ts)
-    const writeFile = system.writeFile
-    system.writeFile = (filePath, text, writeByteOrderMark) => {
-      if (!cssFileFilter.test(filePath)) {
-        writeFile(filePath, text, writeByteOrderMark)
-        return
-      }
-
-      const js = this.#processVanillaFile(filePath, text)
-      writeFile(filePath, js, writeByteOrderMark)
+        return ts.createSourceFile(
+          source.fileName,
+          processed,
+          languageVersionOrOptions,
+          shouldCreateNewSourceFile,
+        )
+      },
+      writeFile: this.#writeFile.bind(this),
     }
 
-    return system
+    const program = ts.createProgram({
+      options: { ...this.options, ...options },
+      rootNames: this.#tsConfig.fileNames,
+      projectReferences: this.#tsConfig.projectReferences,
+      host,
+    })
+
+    program.emit()
+  }
+
+  watch(options?: ts.CompilerOptions) {
+    const sys: ts.System = {
+      ...ts.sys,
+      readFile: (path, encoding) => {
+        const content = ts.sys.readFile(path, encoding)
+        if (!cssFileFilter.test(path) || !content) {
+          return content
+        }
+
+        return this.#processVanillaFile(path, content)
+      },
+      writeFile: this.#writeFile.bind(this),
+    }
+    const host = ts.createWatchCompilerHost(
+      this.#configPath,
+      options,
+      sys,
+      ts.createEmitAndSemanticDiagnosticsBuilderProgram,
+    )
+
+    return ts.createWatchProgram(host)
+  }
+
+  #emit(path: string, data: string, writeByteOrderMark?: boolean): void {
+    const cssScope = this.#cssScopes.get(path)
+    let content = data
+
+    if (cssScope) {
+      const css = transformCss({
+        localClassNames: Array.from(this.#localClassNames),
+        composedClassLists: this.#composedClassLists,
+        cssObjs: cssScope.css,
+      }).join('\n')
+      const cssOutputPath = this.getCssOutputPath(path)
+      // Write generated CSS
+      ts.sys.writeFile(cssOutputPath, css, writeByteOrderMark)
+
+      if (this.#vanillaOptions.imports) {
+        const cssImports = Array.from(cssScope.imports).map((_importPath) => {
+          const scopeImport = this.getCssOutputPath(path)
+          return `import '${pathFrom(path, scopeImport)}';`
+        })
+        content = `${cssImports.join('\n')}\n\n${content}`
+      }
+    }
+
+    ts.sys.writeFile(path, content, writeByteOrderMark)
+  }
+
+  #writeFile(path: string, data: string, writeByteOrderMark?: boolean): void {
+    if (!cssFileFilter.test(path)) {
+      return ts.sys.writeFile(path, data, writeByteOrderMark)
+    }
+    this.#emit(path, data, writeByteOrderMark)
   }
 
   #createCssAdapter(sourcePath: string): Adapter {
@@ -135,7 +164,9 @@ export class VanillaExtract {
           imports: new Set(),
         }
         scope.css.push(css)
-        scope.imports.add(this.#system.resolvePath(fileScope.filePath))
+        // Resolve the file path relative to the project root
+        const resolvedPath = ts.sys.resolvePath(fileScope.filePath)
+        scope.imports.add(resolvedPath)
         this.#cssScopes.set(jsOutputPath, scope)
       },
       registerClassName: (className) => {
@@ -164,6 +195,7 @@ export class VanillaExtract {
       ${transformedSource}
     `
 
+    const require = this.#createVirtualRequire(filePath)
     const evalResult = evalCode(
       adapterBoundSource,
       filePath,
@@ -171,7 +203,7 @@ export class VanillaExtract {
         console,
         process,
         __adapter__: cssAdapter,
-        require: this.#createVirtualRequire(filePath),
+        require,
       },
       true,
     ) as Record<string, unknown>
@@ -184,7 +216,7 @@ export class VanillaExtract {
         removeAdapter();
       }`,
       filePath,
-      { console, process, require: this.#createVirtualRequire(filePath) },
+      { console, process, require },
       true,
     )
 
@@ -202,7 +234,20 @@ export class VanillaExtract {
 
   #createVirtualRequire(containingFile: string) {
     return (moduleId: string) => {
-      const module = this.resolveModule(moduleId, containingFile)
+      const module = ts.resolveModuleName(
+        moduleId,
+        containingFile,
+        this.options,
+        this.#host,
+      ).resolvedModule
+
+      // Special handling for motif/style - treat it as local module to get proper transformation
+      if (moduleId === '@diskette/motif/style') {
+        const motifStylePath = this.#require.resolve(moduleId)
+        const content = ts.sys.readFile(motifStylePath)
+        invariant(content)
+        return this.#evalCode(motifStylePath, content)
+      }
 
       if (module?.isExternalLibraryImport || isBuiltin(moduleId)) {
         return this.#require(moduleId)
@@ -210,30 +255,35 @@ export class VanillaExtract {
 
       if (!module?.resolvedFileName) return
       const filePath = module.resolvedFileName
-      const content = this.#system.readFile(filePath)
+      const content = ts.sys.readFile(filePath)
+
       invariant(content)
-
-      const js = this.transformVanilla(filePath, content)
-
-      return evalCode(js, filePath, {
-        console,
-        process,
-        require: this.#createVirtualRequire(filePath),
-      })
+      return this.#evalCode(filePath, content)
     }
   }
 
-  transformVanilla(
-    filePath: string,
+  #evalCode(
+    filename: string,
     content: string,
-    { identifier = 'short' }: { identifier?: IdentifierOption } = {},
-  ): string {
+    scope?: Record<string, unknown>,
+  ): unknown {
+    const js = this.transformVanilla(filename, content)
+
+    return evalCode(js, filename, {
+      console,
+      process,
+      require: this.#createVirtualRequire(filename),
+      ...scope,
+    })
+  }
+
+  transformVanilla(filePath: string, content: string): string {
     const cached = this.#transformCache.get(filePath)
     if (cached) return cached
 
     const transformed = transformSync({
       filePath,
-      identOption: identifier,
+      identOption: this.#vanillaOptions.identifier ?? 'short',
       packageName: this.#pkg.name,
       rootPath: this.#pkg.dirname,
       source: content,
@@ -242,18 +292,6 @@ export class VanillaExtract {
     this.#transformCache.set(filePath, transpiled)
 
     return transpiled
-  }
-
-  resolveModule(
-    moduleId: string,
-    containingFile: string,
-  ): ts.ResolvedModuleFull | undefined {
-    return ts.resolveModuleName(
-      moduleId,
-      containingFile,
-      this.options,
-      this.#host,
-    ).resolvedModule
   }
 
   getJsOutputPath(fileName: string) {

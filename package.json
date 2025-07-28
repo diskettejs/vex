@@ -14,9 +14,8 @@
   "files": [
     "dist"
   ],
-  "exports": "./dist/vanilla-vfs.js",
+  "exports": "./dist/vex.js",
   "dependencies": {
-    "@typescript/vfs": "^1.6.1",
     "@vanilla-extract/integration": "8.0.4",
     "eval": "^0.1.8",
     "meow": "^13.2.0",

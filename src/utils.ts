@@ -1,18 +1,23 @@
-import { dirname, relative } from 'node:path'
+import { basename, dirname, isAbsolute, relative } from 'node:path'
 import invariant from 'tiny-invariant'
 import ts from 'typescript'
 
-export function getTsConfig({
-  searchPath = process.cwd(),
-}: {
-  searchPath?: string
-  tsconfigPath?: string
-} = {}): ts.ParsedCommandLine {
-  const configPath = ts.findConfigFile(searchPath, ts.sys.fileExists)
+const getBasename = (path: string) => {
+  if (!isAbsolute(path)) {
+    return basename(path)
+  }
+}
+export function getTsConfigPath(path = process.cwd()): string {
+  const searchPath = isAbsolute(path) ? path : ts.sys.resolvePath(path)
 
-  invariant(configPath, 'Could not find a valid tsconfig')
+  const configPath = ts.findConfigFile(
+    searchPath,
+    ts.sys.fileExists,
+    getBasename(searchPath),
+  )
+  invariant(configPath, 'Unable to find a valid tsconfig')
 
-  return readConfig(configPath)
+  return configPath
 }
 
 export function readConfig(configPath: string): ts.ParsedCommandLine {

@@ -2,11 +2,8 @@
 
 import type { IdentifierOption } from '@vanilla-extract/integration'
 import meow from 'meow'
-import { basename } from 'node:path'
-import invariant from 'tiny-invariant'
-import ts from 'typescript'
-import { readConfig } from './utils.ts'
-import { VanillaExtract } from './vanilla-extract.ts'
+import { getTsConfigPath } from './utils.ts'
+import { Vex } from './vex.ts'
 
 const cli = meow(
   `
@@ -17,9 +14,11 @@ const cli = meow(
     --ident, -i  Identifiers format
     --css-ext
     --imports
+    --watch, -w  Watch for file changes
 `,
   {
     importMeta: import.meta,
+    // TODO: add a `noCheck` flag
     flags: {
       ident: {
         choices: ['short', 'debug'],
@@ -31,37 +30,39 @@ const cli = meow(
       },
       imports: {
         type: 'boolean',
-        default: false,
+        default: true,
       },
       tsconfig: {
         type: 'string',
+      },
+      watch: {
+        type: 'boolean',
+        default: false,
+        shortFlag: 'w',
+      },
+      typeCheck: {
+        type: 'boolean',
+        default: true,
       },
     },
   },
 )
 
-let config
-if (cli.flags.tsconfig) {
-  const configFile = ts.findConfigFile(
-    ts.sys.resolvePath(cli.flags.tsconfig),
-    ts.sys.fileExists,
-    basename(cli.flags.tsconfig),
-  )
-  invariant(configFile, `Could not find config: ${cli.flags.tsconfig}`)
-  config = readConfig(configFile)
-}
+const vex = new Vex({
+  identifier: cli.flags.ident as IdentifierOption,
+  cssExt: cli.flags.cssExt,
+  imports: cli.flags.imports,
+  configPath: getTsConfigPath(cli.flags.tsconfig),
+})
 
-const vex = new VanillaExtract(
-  {
-    identifier: cli.flags.ident as IdentifierOption,
-    cssExt: cli.flags.cssExt,
-    imports: cli.flags.imports,
-  },
-  config,
-)
+if (cli.flags.watch) {
+  console.log('Starting watch mode...')
+  // Disabling type-checking for now, need to figure out the `getSourceFile` equivalent for `createWatchCompilerHost`
+  // As files are getting procssed during `readFile`, breaking type generation
+  const watcher = vex.watch({ noCheck: true })
 
-const files = vex.compile()
-
-for (const [path, content] of files) {
-  ts.sys.writeFile(path, content)
+  process.on('SIGINT', () => watcher.close())
+  process.on('SIGTERM', () => watcher.close())
+} else {
+  vex.compile({ noCheck: !cli.flags.typeCheck })
 }
