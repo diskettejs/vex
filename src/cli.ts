@@ -35,6 +35,7 @@ const cli = meow(
       },
       tsconfig: {
         type: 'string',
+        default: 'tsconfig.json',
       },
       watch: {
         type: 'boolean',
