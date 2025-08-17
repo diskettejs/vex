@@ -1,13 +1,12 @@
 {
   "name": "@diskette/vex",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "tsc --watch",
     "build": "rm -rf && tsc",
     "typecheck": "tsc --noEmit",
     "prepublishOnly": "pnpm build",
-    "version": "changeset version",
     "release": "changeset version && changeset publish && git push --follow-tags"
   },
   "bin": {
