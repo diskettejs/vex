@@ -15,4 +15,4 @@ prototype
 temp
 tsconfig.build.tsbuildinfo
 .npmrc
-build/
+playground/
