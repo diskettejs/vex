@@ -11,10 +11,11 @@ const cli = meow(
 	  $ vex
 
 	Options
-    --ident, -i  Identifiers format
-    --css-ext
-    --imports
-    --watch, -w  Watch for file changes
+    --ident, -i     CSS identifier format (short, debug)
+    --css-ext       Custom CSS file extension
+    --imports       Include/exclude CSS imports in JS output (default: true)
+    --tsconfig      Path to TypeScript config file
+    --watch, -w     Watch for file changes
 `,
   {
     importMeta: import.meta,

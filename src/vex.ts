@@ -45,6 +45,7 @@ export class Vex {
   constructor(options: VexOptions = {}) {
     this.#vanillaOptions = { imports: true, ...options }
     this.#configPath = options.configPath ?? process.cwd()
+    // TODO: hardcode `module: "NodeNext" and moduleResolution: "NodeNext"`
     this.#tsConfig = readConfig(this.#configPath)
 
     this.#host = ts.createCompilerHost(this.#tsConfig.options)
@@ -134,10 +135,7 @@ export class Vex {
       ts.sys.writeFile(cssOutputPath, css, writeByteOrderMark)
 
       if (this.#vanillaOptions.imports) {
-        const cssImports = Array.from(cssScope.imports).map((_importPath) => {
-          const scopeImport = this.getCssOutputPath(path)
-          return `import '${pathFrom(path, scopeImport)}';`
-        })
+        const cssImports = [`import '${pathFrom(path, cssOutputPath)}';`]
         content = `${cssImports.join('\n')}\n\n${content}`
       }
     }

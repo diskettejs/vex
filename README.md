@@ -36,8 +36,9 @@ Or add to `package.json` scripts
 | ------------ | ----- | --------- | --------- | ---------------------------------------------------- |
 | `--ident`    | `-i`  | `string`  | `"short"` | CSS class identifier format (`"short"` or `"debug"`) |
 | `--css-ext`  |       | `string`  |           | Custom CSS file extension (e.g., `.module.css`)      |
-| `--imports`  |       | `boolean` | `false`   | Generate CSS import statements in output files       |
+| `--imports`  |       | `boolean` | `true`    | Generate CSS import statements in output files       |
 | `--tsconfig` |       | `string`  |           | Path to TypeScript config file                       |
+| `--watch`    | `-w`  | `boolean` | `false`   | Watch for file changes                               |
 
 ### Examples
 
@@ -59,6 +60,9 @@ vex --no-imports
 
 # Use specific tsconfig file
 vex --tsconfig ./tsconfig.build.json
+
+# Watch mode
+vex --watch
 
 # Combine options
 vex --ident debug --imports --css-ext .styles.css
@@ -91,6 +95,23 @@ dist/                      # Based on your tsconfig outDir
     ├── vars.css.js
     └── vars.ts.vanilla.css
 ```
+
+## Configuration Requirements
+
+Your `tsconfig.json` must include:
+
+```json
+{
+  "compilerOptions": {
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext"
+  }
+}
+```
+
+## Known Issues
+
+- **Type checking is currently disabled**: Due to integration complexities with the TypeScript compiler API when processing vanilla-extract files, type checking has been temporarily disabled. Files are compiled without type validation.
 
 ## License
 

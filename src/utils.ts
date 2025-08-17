@@ -3,17 +3,24 @@ import invariant from 'tiny-invariant'
 import ts from 'typescript'
 
 const getBasename = (path: string) => {
-  if (!isAbsolute(path)) {
-    return basename(path)
-  }
+  return basename(path)
 }
 export function getTsConfigPath(path = process.cwd()): string {
   const searchPath = isAbsolute(path) ? path : ts.sys.resolvePath(path)
 
+  // If path points to a specific file, check if it exists directly
+  if (getBasename(searchPath) && getBasename(searchPath) !== searchPath) {
+    if (ts.sys.fileExists(searchPath)) {
+      return searchPath
+    }
+    invariant(false, `Unable to find tsconfig file: ${searchPath}`)
+  }
+
+  // Otherwise, search for default tsconfig.json
   const configPath = ts.findConfigFile(
     searchPath,
     ts.sys.fileExists,
-    getBasename(searchPath),
+    'tsconfig.json',
   )
   invariant(configPath, 'Unable to find a valid tsconfig')
 

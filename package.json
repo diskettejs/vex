@@ -35,10 +35,10 @@
     "@vanilla-extract/css": "^1",
     "typescript": "^5"
   },
-  "homepage": "https://github.com/diskette/vex",
+  "homepage": "https://github.com/diskettejs/vex",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/diskette/vex.git"
+    "url": "git+https://github.com/diskettejs/vex.git"
   },
   "keywords": [
     "vanilla-extract",
