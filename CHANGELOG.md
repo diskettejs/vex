@@ -1,5 +1,11 @@
 # @diskette/vex
 
+## 0.2.1
+
+### Patch Changes
+
+- c779758: add default to tsconfig flag
+
 ## 0.2.0
 
 ### Minor Changes
