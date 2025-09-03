@@ -1,5 +1,11 @@
 # @diskette/vex
 
+## 0.6.1
+
+### Patch Changes
+
+- 1a6f311: remove console.log during emit
+
 ## 0.6.0
 
 ### Minor Changes
