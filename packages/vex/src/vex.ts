@@ -95,7 +95,6 @@ export class Vex {
         content = js
 
         if (this.#vanillaOptions.imports) {
-          console.log(cssScope)
           const cssImports = [`import '${pathFrom(path, cssOutputPath)}';`]
           content = `${cssImports.join('\n')}\n\n${content}`
         }
