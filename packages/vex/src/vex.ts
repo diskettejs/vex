@@ -90,16 +90,15 @@ export class Vex {
         // Write generated CSS
         output.set(cssOutputPath, css)
 
-        if (this.#vanillaOptions.imports) {
-          const cssImports = [`import '${pathFrom(path, cssOutputPath)}';`]
-          content = `${cssImports.join('\n')}\n\n${content}`
-        }
-      }
-
-      if (cssFileFilter.test(path)) {
         const js = this.#serializedVanilla.get(path)
         invariant(js, `${path} is missing serialized vanilla module`)
         content = js
+
+        if (this.#vanillaOptions.imports) {
+          console.log(cssScope)
+          const cssImports = [`import '${pathFrom(path, cssOutputPath)}';`]
+          content = `${cssImports.join('\n')}\n\n${content}`
+        }
       }
 
       output.set(path, content)
@@ -119,10 +118,12 @@ export class Vex {
         return text
       }
       if (text) {
-        const js = this.#processVanillaFile(path, text)
         const outputPath = this.getJsOutputPath(path)
-        invariant(outputPath, `file ${path} missing output path`)
-        this.#serializedVanilla.set(outputPath, js)
+        if (outputPath) {
+          const cssAdapter = this.#createCssAdapter(outputPath)
+          const js = this.#processVanillaFile(path, text, cssAdapter)
+          this.#serializedVanilla.set(outputPath, js)
+        }
 
         return text
       }
@@ -131,9 +132,12 @@ export class Vex {
     return system
   }
 
-  #processVanillaFile(filePath: string, content: string): string {
+  #processVanillaFile(
+    filePath: string,
+    content: string,
+    cssAdapter: Adapter,
+  ): string {
     const transformedSource = this.transformVanilla(filePath, content)
-    const cssAdapter = this.#createCssAdapter(filePath)
 
     const currentNodeEnv = process.env.NODE_ENV
     process.env.NODE_ENV = originalNodeEnv
@@ -221,10 +225,8 @@ export class Vex {
     })
   }
 
-  #createCssAdapter(sourcePath: string): Adapter {
+  #createCssAdapter(jsOutputPath: string): Adapter {
     const { identifier = 'short' } = this.#vanillaOptions
-    const jsOutputPath = this.getJsOutputPath(sourcePath)
-    invariant(jsOutputPath, `Could not determine output path for ${sourcePath}`)
 
     return {
       appendCss: (css, fileScope) => {
@@ -269,9 +271,14 @@ export class Vex {
     return transpiled
   }
 
-  getJsOutputPath(fileName: string) {
-    const paths = ts.getOutputFileNames(this.#tsConfig, fileName, false)
-    return paths.find((path) => path.endsWith('.js'))
+  getJsOutputPath(fileName: string): string | undefined {
+    try {
+      const paths = ts.getOutputFileNames(this.#tsConfig, fileName, false)
+
+      return paths.find((path) => path.endsWith('.js'))
+    } catch (error) {
+      console.warn(`Could not determine output path for ${fileName}`)
+    }
   }
 
   getCssOutputPath(jsOutputPath: string): string {
