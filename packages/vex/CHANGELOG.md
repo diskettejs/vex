@@ -1,5 +1,11 @@
 # @diskette/vex
 
+## 0.6.0
+
+### Minor Changes
+
+- 92757d9: fix CSS imports
+
 ## 0.5.0
 
 ### Minor Changes
