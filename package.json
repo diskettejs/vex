@@ -1,0 +1,20 @@
+{
+  "name": "vex",
+  "private": "true",
+  "scripts": {
+    "build": "pnpm --filter \"./packages/**\" build",
+    "typecheck": "pnpm --filter \"./packages/**\" typecheck",
+    "test": "pnpm --filter \"./packages/**\" test",
+    "release": "changeset version && changeset publish && git push --follow-tags"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.6",
+    "prettier": "^3.4.2",
+    "typescript": "catalog:dev"
+  },
+  "packageManager": "pnpm@10.15.0",
+  "prettier": {
+    "semi": false,
+    "singleQuote": true
+  }
+}
