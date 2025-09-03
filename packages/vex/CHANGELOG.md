@@ -1,5 +1,11 @@
 # @diskette/vex
 
+## 0.5.0
+
+### Minor Changes
+
+- 7750ba5: Read a project's tsconfig instead of generated config
+
 ## 0.4.0
 
 ### Minor Changes
