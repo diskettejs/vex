@@ -1,0 +1,21 @@
+{
+  "name": "playground",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "rollup -c"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@vanilla-extract/css": "^1.17.5",
+    "@vanilla-extract/rollup-plugin": "^1.5.0",
+    "typescript": "5.9.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}
