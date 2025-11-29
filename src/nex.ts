@@ -1,54 +1,71 @@
 import { transformCss } from '@vanilla-extract/css/transformCss'
-import {
-  parseFileScope,
-  serializeVanillaModule,
-} from '@vanilla-extract/integration'
+import { serializeVanillaModule } from '@vanilla-extract/integration'
 import * as esbuild from 'esbuild'
-import { createRequire } from 'node:module'
-import { relative } from 'node:path'
+import { createRequire, isBuiltin } from 'node:module'
 import vm from 'node:vm'
+import { Project, SourceFile, ts } from 'ts-morph'
 import { VanillaAdapter } from './adapter.ts'
+import {
+  cssFileFilter,
+  getOutputPaths,
+  invariant,
+  parseFileScope,
+  pathFrom,
+} from './misc.ts'
 import type { PackageInfo, ProcessOptions, ProcessResult } from './types.ts'
 
 export class Nex {
   #adapter: VanillaAdapter
   #pkg: PackageInfo
   #require: NodeJS.Require
+  #project: Project
 
   constructor(options: ProcessOptions) {
     this.#adapter = new VanillaAdapter(options.identifier ?? 'short')
     this.#pkg = options.pkg
     this.#require = createRequire(import.meta.url)
+    this.#project = new Project({
+      tsConfigFilePath: 'tsconfig.json',
+      skipAddingFilesFromTsConfig: true,
+    })
   }
 
-  process(filePath: string, source: string) {
-    const transformed = this.#addFileScope(source, filePath)
+  async *processFiles(path = '**/**.css.ts'): AsyncGenerator<ProcessResult> {
+    const files = await this.#project.addSourceFilesAtPaths(path)
 
-    const exports = this.#runInVm(transformed, filePath)
+    for (const file of files) {
+      yield this.#process(file)
+    }
+  }
 
-    const output = new Map<string, { content: string; imports: Set<string> }>()
+  #process(file: SourceFile): ProcessResult {
+    this.#adapter.reset()
 
-    for (const [serialisedFileScope, fileScopeCss] of this.#adapter
-      .cssByFileScope) {
+    const transformed = this.#addFileScope(file)
+    const exports = this.#runInVm(file, transformed)
+    const paths = getOutputPaths(file)
+
+    const cssImports: string[] = []
+    let cssContent = ''
+
+    const cssByFileScope = this.#adapter.cssByFileScope
+
+    for (const [serialisedFileScope, fileScopeCss] of cssByFileScope) {
       const fileScope = parseFileScope(serialisedFileScope)
-      const css = transformCss({
+      cssContent = transformCss({
         localClassNames: Array.from(this.#adapter.localClassNames),
         composedClassLists: this.#adapter.composedClassLists,
         cssObjs: fileScopeCss,
       }).join('\n')
 
-      const fileName = `${fileScope.filePath}.vanilla.css`
-      const obj = output.get(fileName)
-      if (obj) {
-        obj.imports.add(`import '${fileName}';`)
-      } else {
-        output.set(fileName, { content: css, imports: new Set() })
-      }
-    }
+      const fileScopeSource = this.#project.getSourceFile(fileScope.filePath)
+      invariant(
+        fileScopeSource,
+        `Source file not found for file scope: ${fileScope.filePath}`,
+      )
+      const fileScopePaths = getOutputPaths(fileScopeSource)
 
-    const { removeAdapter } = this.#require('@vanilla-extract/css/adapter')
-    if (removeAdapter) {
-      removeAdapter()
+      cssImports.push(`import '${pathFrom(paths.js, fileScopePaths.css)}';`)
     }
 
     const unusedCompositions = this.#adapter.composedClassLists
@@ -62,26 +79,41 @@ export class Nex {
         ? RegExp(`(${unusedCompositions.join('|')})\\s`, 'g')
         : null
 
-    const js = serializeVanillaModule([], exports, unusedCompositionRegex)
+    const jsCode = serializeVanillaModule(
+      cssImports,
+      exports,
+      unusedCompositionRegex,
+    )
 
-    return { js, css: output }
+    const dts = ts.transpileDeclaration(jsCode, {
+      compilerOptions: this.#project.compilerOptions.get(),
+    })
+
+    return {
+      js: { code: jsCode, path: paths.js },
+      css: { code: cssContent, path: paths.css },
+      dts: { code: dts.outputText, path: paths.dts },
+    }
   }
 
-  #addFileScope(source: string, filePath: string): string {
-    const normalizedPath = relative(this.#pkg.dirname, filePath).replace(
-      /\\/g,
-      '/',
-    )
+  #addFileScope(file: SourceFile): string {
+    const source = file.getText()
+    const filePath = file.getFilePath()
+    // TODO: move this out of this method
+    const { code } = esbuild.transformSync(source, {
+      loader: 'ts',
+      format: 'cjs',
+    })
 
     return `
       const __vanilla_filescope__ = require("@vanilla-extract/css/fileScope");
-      __vanilla_filescope__.setFileScope("${normalizedPath}", "${this.#pkg.name}");
-      ${source}
+      __vanilla_filescope__.setFileScope("${filePath}", "${this.#pkg.name}");
+      ${code}
       __vanilla_filescope__.endFileScope();
     `
   }
 
-  #runInVm(code: string, path: string): Record<string, unknown> {
+  #runInVm(file: SourceFile, code: string): Record<string, unknown> {
     const wrappedCode = `
       require('@vanilla-extract/css/adapter').setAdapter(__adapter__);
       ${code}
@@ -89,14 +121,51 @@ export class Nex {
 
     const moduleExports = {}
     const moduleObj = { exports: moduleExports }
-
     vm.runInNewContext(wrappedCode, {
       __adapter__: this.#adapter,
       console,
-      require: createRequire(path),
+      require: this.#createScopedRequire(file),
       module: moduleObj,
     })
 
     return moduleObj.exports
+  }
+
+  #createScopedRequire(
+    file: SourceFile,
+    options?: { blockedModules?: string[]; allowedBuiltins?: string[] },
+  ) {
+    const path = file.getFilePath()
+    const scopedRequire = createRequire(path)
+    const { allowedBuiltins = [], blockedModules = [] } = options ?? {}
+
+    return (moduleId: string) => {
+      if (blockedModules.includes(moduleId)) {
+        throw new Error(`Module "${moduleId}" is not allowed`)
+      }
+
+      if (isBuiltin(moduleId)) {
+        if (
+          allowedBuiltins &&
+          !allowedBuiltins.includes(moduleId.replace(/^node:/, ''))
+        ) {
+          throw new Error(`Built-in module "${moduleId}" is not allowed`)
+        }
+        return this.#require(moduleId)
+      }
+
+      if (
+        !cssFileFilter.test(moduleId) ||
+        moduleId.includes('@vanilla-extract')
+      ) {
+        return scopedRequire(moduleId)
+      }
+
+      const resolvedPath = scopedRequire.resolve(moduleId)
+      let sourceFile = this.#project.getSourceFile(resolvedPath)
+      invariant(sourceFile, `Source file not found in project: ${resolvedPath}`)
+
+      return this.#runInVm(file, this.#addFileScope(sourceFile))
+    }
   }
 }

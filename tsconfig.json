@@ -1,6 +1,5 @@
 {
   "compilerOptions": {
-    "declaration": true,
     "verbatimModuleSyntax": true,
     "erasableSyntaxOnly": true,
     "rewriteRelativeImportExtensions": true,

@@ -1,5 +1,5 @@
 import type { Adapter, FileScope } from '@vanilla-extract/css'
-import { stringifyFileScope } from '@vanilla-extract/integration'
+import { stringifyFileScope } from './misc.ts'
 import type { IdentifierOption } from './types.ts'
 
 export type Css = Parameters<Adapter['appendCss']>[0]
@@ -16,7 +16,6 @@ export class VanillaAdapter implements Adapter {
   constructor(identifier: IdentifierOption = 'short') {
     this.#identifier = identifier
   }
-
   get cssObjs(): Css[] {
     return this.#cssObjs
   }
@@ -36,7 +35,6 @@ export class VanillaAdapter implements Adapter {
   appendCss(css: Css, fileScope: FileScope): void {
     const serialisedFileScope = stringifyFileScope(fileScope)
     const fileScopeCss = this.cssByFileScope.get(serialisedFileScope) ?? []
-
     fileScopeCss.push(css)
 
     this.cssByFileScope.set(serialisedFileScope, fileScopeCss)
@@ -59,5 +57,12 @@ export class VanillaAdapter implements Adapter {
 
   getIdentOption(): IdentifierOption {
     return this.#identifier
+  }
+
+  reset(): void {
+    this.cssByFileScope.clear()
+    this.#localClassNames.clear()
+    this.#composedClassLists = []
+    this.#usedCompositions.clear()
   }
 }

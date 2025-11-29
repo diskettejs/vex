@@ -6,9 +6,9 @@ export type CustomIdentFunction = (params: {
 }) => string
 export type IdentifierOption = 'short' | 'debug' | CustomIdentFunction
 
-export interface ProcessResult {
-  js: string
-  css: string
+export type FileScope = {
+  packageName?: string | undefined
+  filePath: string
 }
 
 export interface PackageInfo {
@@ -20,4 +20,25 @@ export interface PackageInfo {
 export interface ProcessOptions {
   pkg: PackageInfo
   identifier?: IdentifierOption
+}
+
+export interface OutputPaths {
+  dts: string
+  js: string
+  css: string
+}
+
+export interface ProcessResult {
+  js: {
+    code: string
+    path: string
+  }
+  css: {
+    code: string
+    path: string
+  }
+  dts: {
+    code: string
+    path: string
+  }
 }
