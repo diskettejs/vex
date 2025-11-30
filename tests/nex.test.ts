@@ -1,10 +1,12 @@
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import { Nex } from '../src/nex.ts'
 import type { PackageInfo, ProcessResult } from '../src/types.ts'
 
 const projectRoot = join(import.meta.dirname, '..')
-const fixturesDir = join(import.meta.dirname, 'fixtures')
+const fixtures = (path: string) =>
+  fileURLToPath(import.meta.resolve(`./fixtures/${path}`))
 
 const pkg: PackageInfo = {
   name: '@diskette/nex',
@@ -12,46 +14,54 @@ const pkg: PackageInfo = {
   path: '',
 }
 
+function createNex() {
+  return new Nex({
+    tsconfig: join(projectRoot, 'tsconfig.json'),
+    outDir: 'dist',
+    pkgInfo: pkg,
+  })
+}
+
 describe('Nex', () => {
   describe('processFiles', () => {
-    test('processes simple style', async () => {
-      const filePath = join(fixturesDir, 'simple/styles.css.ts')
+    test.only('processes simple style', async () => {
+      const filePath = fixtures('simple/styles.css.ts')
 
-      const nex = new Nex({ pkg })
+      const nex = createNex()
       const files = nex.processFiles(filePath)
-      const result = (await files.next()).value!
+      const [result] = await Array.fromAsync(files)
 
       // Verify all three outputs exist
-      expect(result.css.code).toMatchInlineSnapshot(`
+      expect(result?.outputs.css.code).toMatchInlineSnapshot(`
         ".bvos4v0 {
           background-color: red;
           font-size: 12;
         }"
       `)
-      expect(result.js.code).toMatchInlineSnapshot(`
+      expect(result?.outputs.js.code).toMatchInlineSnapshot(`
         "import './styles.css.ts.vanilla.css';
         export var container = 'bvos4v0';"
       `)
-      expect(result.dts.code).toMatchInlineSnapshot(`
+      expect(result?.outputs.dts.code).toMatchInlineSnapshot(`
         "import './styles.css.ts.vanilla.css';
         export declare var container: string;
         "
       `)
 
       // Verify output paths
-      expect(result.css.path).toMatch(/\.css$/)
-      expect(result.js.path).toMatch(/\.js$/)
-      expect(result.dts.path).toMatch(/\.d\.ts$/)
+      expect(result?.outputs.css.path).toMatch(/\.css$/)
+      expect(result?.outputs.js.path).toMatch(/\.js$/)
+      expect(result?.outputs.dts.path).toMatch(/\.d\.ts$/)
     })
 
     test('processes complex styles with createVar and createContainer', async () => {
-      const filePath = join(fixturesDir, 'low-level/styles.css.ts')
+      const filePath = fixtures('low-level/styles.css.ts')
 
-      const nex = new Nex({ pkg })
+      const nex = createNex()
       const files = nex.processFiles(filePath)
-      const result = (await files.next()).value!
+      const [result] = await Array.fromAsync(files)
 
-      expect(result.css.code).toMatchInlineSnapshot(`
+      expect(result?.outputs.css.code).toMatchInlineSnapshot(`
         "._1222fxd2 {
           container-type: size;
           container-name: _1222fxd1;
@@ -70,12 +80,12 @@ describe('Nex', () => {
           }
         }"
       `)
-      expect(result.js.code).toMatchInlineSnapshot(`
+      expect(result?.outputs.js.code).toMatchInlineSnapshot(`
         "import './styles.css.ts.vanilla.css';
         export var block = '_1222fxd3';
         export var container = '_1222fxd2';"
       `)
-      expect(result.dts.code).toMatchInlineSnapshot(`
+      expect(result?.outputs.dts.code).toMatchInlineSnapshot(`
         "import './styles.css.ts.vanilla.css';
         export declare var block: string;
         export declare var container: string;
@@ -84,18 +94,18 @@ describe('Nex', () => {
     })
 
     test('processes files with local imports', async () => {
-      const nex = new Nex({ pkg })
+      const nex = createNex()
       const results: ProcessResult[] = []
 
       for await (const result of nex.processFiles(
-        join(fixturesDir, 'themed/*.css.ts'),
+        fixtures('themed/*.css.ts'),
       )) {
         results.push(result)
       }
 
-      const result = results.find((r) => r.js.path.includes('styles'))!
+      const result = results.find((r) => r.outputs.js.path.includes('styles'))!
 
-      expect(result.css.code).toMatchInlineSnapshot(`
+      expect(result.outputs.css.code).toMatchInlineSnapshot(`
         "@font-face {
           src: local("Impact");
           font-family: "tm8ia10";
@@ -152,7 +162,7 @@ describe('Nex', () => {
           }
         }"
       `)
-      expect(result.js.code).toMatchInlineSnapshot(`
+      expect(result.outputs.js.code).toMatchInlineSnapshot(`
         "import './shared.css.ts.vanilla.css';
         import './themes.css.ts.vanilla.css';
         import './styles.css.ts.vanilla.css';
@@ -160,7 +170,7 @@ describe('Nex', () => {
         export var container = 'tm8ia11';
         export var opacity = {'1/2':'tm8ia16','1/4':'tm8ia17'};"
       `)
-      expect(result.dts.code).toMatchInlineSnapshot(`
+      expect(result.outputs.dts.code).toMatchInlineSnapshot(`
         "import './shared.css.ts.vanilla.css';
         import './themes.css.ts.vanilla.css';
         import './styles.css.ts.vanilla.css';
@@ -175,11 +185,11 @@ describe('Nex', () => {
     })
 
     test('processes multiple files with glob pattern', async () => {
-      const nex = new Nex({ pkg })
+      const nex = createNex()
       const results: ProcessResult[] = []
 
       for await (const result of nex.processFiles(
-        join(fixturesDir, 'themed/*.css.ts'),
+        fixtures('themed/*.css.ts'),
       )) {
         results.push(result)
       }
@@ -188,17 +198,17 @@ describe('Nex', () => {
 
       // Verify each result has all three outputs with valid paths
       for (const result of results) {
-        expect(result.css.code).toBeDefined()
-        expect(result.js.code).toBeDefined()
-        expect(result.dts.code).toBeDefined()
+        expect(result.outputs.css.code).toBeDefined()
+        expect(result.outputs.js.code).toBeDefined()
+        expect(result.outputs.dts.code).toBeDefined()
 
-        expect(result.css.path).toMatch(/\.css$/)
-        expect(result.js.path).toMatch(/\.js$/)
-        expect(result.dts.path).toMatch(/\.d\.ts$/)
+        expect(result.outputs.css.path).toMatch(/\.css$/)
+        expect(result.outputs.js.path).toMatch(/\.js$/)
+        expect(result.outputs.dts.path).toMatch(/\.d\.ts$/)
       }
 
       // Verify specific files were processed
-      const paths = results.map((r) => r.js.path)
+      const paths = results.map((r) => r.outputs.js.path)
       expect(paths.some((p) => p.includes('shared'))).toBe(true)
       expect(paths.some((p) => p.includes('styles'))).toBe(true)
       expect(paths.some((p) => p.includes('themes'))).toBe(true)

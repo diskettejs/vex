@@ -12,7 +12,7 @@ import {
   parseFileScope,
   pathFrom,
 } from './misc.ts'
-import type { PackageInfo, ProcessOptions, ProcessResult } from './types.ts'
+import type { NexOptions, PackageInfo, ProcessResult } from './types.ts'
 
 export class Nex {
   #adapter: VanillaAdapter
@@ -20,18 +20,26 @@ export class Nex {
   #require: NodeJS.Require
   #project: Project
 
-  constructor(options: ProcessOptions) {
+  constructor(options: NexOptions) {
     this.#adapter = new VanillaAdapter(options.identifier ?? 'short')
-    this.#pkg = options.pkg
+    this.#pkg = options.pkgInfo
     this.#require = createRequire(import.meta.url)
+
     this.#project = new Project({
-      tsConfigFilePath: 'tsconfig.json',
+      tsConfigFilePath: options.tsconfig,
+      compilerOptions: options.compilerOptions,
       skipAddingFilesFromTsConfig: true,
+      defaultCompilerOptions: {
+        outDir: 'dist',
+        declaration: true,
+      },
     })
   }
 
-  async *processFiles(path = '**/**.css.ts'): AsyncGenerator<ProcessResult> {
-    const files = await this.#project.addSourceFilesAtPaths(path)
+  async *processFiles(
+    fileGlobs: string | readonly string[] = '**/*.css.ts',
+  ): AsyncGenerator<ProcessResult> {
+    const files = await this.#project.addSourceFilesAtPaths(fileGlobs)
 
     for (const file of files) {
       yield this.#process(file)
@@ -88,11 +96,14 @@ export class Nex {
     const dts = ts.transpileDeclaration(jsCode, {
       compilerOptions: this.#project.compilerOptions.get(),
     })
-
+    const sourcePath = file.getFilePath()
     return {
-      js: { code: jsCode, path: paths.js },
-      css: { code: cssContent, path: paths.css },
-      dts: { code: dts.outputText, path: paths.dts },
+      source: sourcePath,
+      outputs: {
+        js: { code: jsCode, path: paths.js },
+        css: { code: cssContent, path: paths.css },
+        dts: { code: dts.outputText, path: paths.dts },
+      },
     }
   }
 

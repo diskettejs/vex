@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "@vanilla-extract/integration": "8.0.6",
+    "citty": "^0.1.6",
     "esbuild": "^0.27.0",
     "ts-morph": "^27.0.2"
   },

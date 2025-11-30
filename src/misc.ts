@@ -6,7 +6,19 @@ import type { FileScope, OutputPaths, PackageInfo } from './types.ts'
 // Vite adds a "?used" to CSS files it detects, this isn't relevant for
 // .css.ts files but it's added anyway so we need to allow for it in the file match
 export const cssFileFilter: RegExp = /\.css\.(js|cjs|mjs|jsx|ts|tsx)(\?used)?$/
-export const virtualCssFileFilter: RegExp = /\.vanilla\.css\?source=.*$/
+
+export function formatVanillaPaths(path: string): string {
+  // If path already matches a .css.{ts,js,...} pattern, return as-is
+  if (cssFileFilter.test(path)) {
+    return path
+  }
+
+  // Normalize trailing slash
+  const normalized = path.endsWith('/') ? path.slice(0, -1) : path
+
+  // Append glob pattern for vanilla-extract files
+  return `${normalized}/**/*.css.ts`
+}
 
 export async function pkgInfo(path = './package.json'): Promise<PackageInfo> {
   const packageJsonExists = await fs.access(path).then(
@@ -70,6 +82,7 @@ export function getOutputPaths(file: SourceFile): OutputPaths {
 
   return outputs.reduce((acc, outputFile) => {
     const filepath = outputFile.getFilePath()
+
     if (filepath.endsWith('.d.ts')) {
       acc['dts'] = filepath
     } else if (filepath.endsWith('.js')) {
@@ -86,4 +99,12 @@ export function getJsOutputPath(file: SourceFile): string {
   const jsDist = outputs.find((f) => f.getFilePath().endsWith('.js'))
   invariant(jsDist, `${file.getBaseName()} has not output path`)
   return jsDist.getFilePath()
+}
+
+export async function writeOutput(output: {
+  code: string
+  path: string
+}): Promise<void> {
+  await fs.mkdir(dirname(output.path), { recursive: true })
+  await fs.writeFile(output.path, output.code)
 }
