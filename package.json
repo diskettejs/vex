@@ -1,6 +1,6 @@
 {
-  "name": "@diskette/nex",
-  "version": "0.0.0",
+  "name": "@diskette/vex",
+  "version": "0.6.1",
   "description": "Compile vanilla-extract .css.ts files into CSS, JS, and TypeScript declarations",
   "keywords": [
     "vanilla-extract",
@@ -27,7 +27,7 @@
     }
   },
   "bin": {
-    "nex": "./dist/cli.js"
+    "vex": "./dist/cli.js"
   },
   "sideEffects": false,
   "files": [
@@ -37,6 +37,7 @@
     "@vanilla-extract/css": "^1"
   },
   "dependencies": {
+    "@changesets/cli": "^2.29.7",
     "@vanilla-extract/integration": "8.0.6",
     "chalk": "^5.6.2",
     "citty": "^0.1.6",
