@@ -67,7 +67,7 @@ export class Vex {
 
     // This speeds up processing but breaks on files with function exports and also all deps get included as outputs. Need to find a workaround
     // this.#project.resolveSourceFileDependencies()
-
+    this.#project.compilerOptions.get
     const files = this.#project.getSourceFiles()
     const results: ProcessResult[] = []
     const errors: FileErrorEvent[] = []

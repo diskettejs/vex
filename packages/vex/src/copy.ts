@@ -131,8 +131,9 @@ export function formatOutputsTable(
       chalk.red(`✗ ${errors.length} error${errors.length === 1 ? '' : 's'}:`),
     )
     for (const { path, error } of errors) {
-      const errorMsg = error.message.split('\n')[0] // First line only
-      lines.push(`  ${chalk.dim('•')} ${rel(path)}: ${chalk.red(errorMsg)}`)
+      lines.push(
+        `  ${chalk.dim('•')} ${rel(path)}: ${chalk.red(error.message)}`,
+      )
     }
   }
 

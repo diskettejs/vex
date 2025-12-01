@@ -7,6 +7,18 @@ settings:
 importers:
 
   .:
+    devDependencies:
+      '@changesets/cli':
+        specifier: ^2.29.7
+        version: 2.29.8(@types/node@24.10.1)
+      prettier:
+        specifier: ^3.7.3
+        version: 3.7.3
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+
+  packages/vex:
     dependencies:
       '@vanilla-extract/integration':
         specifier: 8.0.6
@@ -27,18 +39,12 @@ importers:
         specifier: ^27.0.2
         version: 27.0.2
     devDependencies:
-      '@changesets/cli':
-        specifier: ^2.29.7
-        version: 2.29.8(@types/node@24.10.1)
       '@types/node':
         specifier: 24.10.1
         version: 24.10.1
       '@vanilla-extract/css':
         specifier: ^1.17.5
         version: 1.17.5
-      prettier:
-        specifier: ^3.4.2
-        version: 3.6.2
       tsx:
         specifier: ^4.20.6
         version: 4.20.6
@@ -48,6 +54,37 @@ importers:
       vitest:
         specifier: 4.0.14
         version: 4.0.14(@types/node@24.10.1)(tsx@4.20.6)
+
+  playground:
+    dependencies:
+      clsx:
+        specifier: ^2.1.1
+        version: 2.1.1
+      react:
+        specifier: ^19.2.0
+        version: 19.2.0
+    devDependencies:
+      '@diskette/vex':
+        specifier: workspace:*
+        version: link:../packages/vex
+      '@types/react':
+        specifier: ^19.2.7
+        version: 19.2.7
+      '@types/react-dom':
+        specifier: ^19.2.3
+        version: 19.2.3(@types/react@19.2.7)
+      '@vanilla-extract/css':
+        specifier: ^1.17.5
+        version: 1.17.5
+      '@vanilla-extract/recipes':
+        specifier: ^0.5.7
+        version: 0.5.7(@vanilla-extract/css@1.17.5)
+      '@vanilla-extract/sprinkles':
+        specifier: ^1.6.5
+        version: 1.6.5(@vanilla-extract/css@1.17.5)
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
 
 packages:
 
@@ -684,6 +721,14 @@ packages:
   '@types/node@24.10.1':
     resolution: {integrity: sha512-GNWcUTRBgIRJD5zj+Tq0fKOJ5XZajIiBroOF0yvj2bSU1WvNdYS/dn9UxwsujGW4JX06dnHyjV2y9rRaybH0iQ==}
 
+  '@types/react-dom@19.2.3':
+    resolution: {integrity: sha512-jp2L/eY6fn+KgVVQAOqYItbF0VY/YApe5Mz2F0aykSO8gx31bYCZyvSeYxCHKvzHG5eZjc+zyaS5BrBWya2+kQ==}
+    peerDependencies:
+      '@types/react': ^19.2.0
+
+  '@types/react@19.2.7':
+    resolution: {integrity: sha512-MWtvHrGZLFttgeEj28VXHxpmwYbor/ATPYbBfSFZEIRK0ecCFLl2Qo55z52Hss+UV9CRN7trSeq1zbgx7YDWWg==}
+
   '@vanilla-extract/babel-plugin-debug-ids@1.2.2':
     resolution: {integrity: sha512-MeDWGICAF9zA/OZLOKwhoRlsUW+fiMwnfuOAqFVohL31Agj7Q/RBWAYweqjHLgFBCsdnr6XIfwjJnmb2znEWxw==}
 
@@ -695,6 +740,16 @@ packages:
 
   '@vanilla-extract/private@1.0.9':
     resolution: {integrity: sha512-gT2jbfZuaaCLrAxwXbRgIhGhcXbRZCG3v4TTUnjw0EJ7ArdBRxkq4msNJkbuRkCgfIK5ATmprB5t9ljvLeFDEA==}
+
+  '@vanilla-extract/recipes@0.5.7':
+    resolution: {integrity: sha512-Fvr+htdyb6LVUu+PhH61UFPhwkjgDEk8L4Zq9oIdte42sntpKrgFy90MyTRtGwjVALmrJ0pwRUVr8UoByYeW8A==}
+    peerDependencies:
+      '@vanilla-extract/css': ^1.0.0
+
+  '@vanilla-extract/sprinkles@1.6.5':
+    resolution: {integrity: sha512-HOYidLONR/SeGk8NBAeI64I4gYdsMX9vJmniL13ZcLVwawyK0s2GUENEAcGA+GYLIoeyQB61UqmhqPodJry7zA==}
+    peerDependencies:
+      '@vanilla-extract/css': ^1.0.0
 
   '@vitest/expect@4.0.14':
     resolution: {integrity: sha512-RHk63V3zvRiYOWAV0rGEBRO820ce17hz7cI2kDmEdfQsBjT2luEKB5tCOc91u1oSQoUOZkSv3ZyzkdkSLD7lKw==}
@@ -805,6 +860,10 @@ packages:
   cli-cursor@5.0.0:
     resolution: {integrity: sha512-aCj4O5wKyszjMmDT4tZj93kxyydN/K5zPWSCe6/0AV/AA1pqe5ZBIw0a2ZfPQV7lL5/yb5HsUreJ6UFAF1tEQw==}
     engines: {node: '>=18'}
+
+  clsx@2.1.1:
+    resolution: {integrity: sha512-eYm0QWBtUrBWZWG0d386OGAw16Z995PiOVo2B7bjWSbHedGl5e0ZWaq65kOGgUSNesEIDkB9ISbTg/JK9dhCZA==}
+    engines: {node: '>=6'}
 
   code-block-writer@13.0.3:
     resolution: {integrity: sha512-Oofo0pq3IKnsFtuHqSF7TqBfr71aeyZDVJ0HpmqB7FBM2qEigL0iPONSCZSO9pE9dZTAxANe5XHG9Uy0YMv8cg==}
@@ -1196,8 +1255,8 @@ packages:
     engines: {node: '>=10.13.0'}
     hasBin: true
 
-  prettier@3.6.2:
-    resolution: {integrity: sha512-I7AIg5boAr5R0FFtJ6rCfD+LFsWHp81dolrFD8S79U9tb8Az2nGrJncnMSnys+bpQJfRUzqs9hnA81OAA3hCuQ==}
+  prettier@3.7.3:
+    resolution: {integrity: sha512-QgODejq9K3OzoBbuyobZlUhznP5SKwPqp+6Q6xw6o8gnhr4O85L2U915iM2IDcfF2NPXVaM9zlo9tdwipnYwzg==}
     engines: {node: '>=14'}
     hasBin: true
 
@@ -1206,6 +1265,10 @@ packages:
 
   queue-microtask@1.2.3:
     resolution: {integrity: sha512-NuaNSa6flKT5JaSYQzJok04JzTL1CA6aGhv5rfLW3PgqA+M2ChpZQnAC8h8i4ZFkBS8X5RqkDBHA7r4hej3K9A==}
+
+  react@19.2.0:
+    resolution: {integrity: sha512-tmbWg6W31tQLeB5cdIBOicJDJRR2KzXsV7uSK9iNfLWQ5bIZfxuPEHp7M8wiHyHnn0DD1i7w3Zmin0FtkrwoCQ==}
+    engines: {node: '>=0.10.0'}
 
   read-yaml-file@1.1.0:
     resolution: {integrity: sha512-VIMnQi/Z4HT2Fxuwg5KrY174U1VdUIASQVWXXyqtNRtxSr9IYkn1rsI6Tb6HsrHCmB7gVpNwX6JxPTHcH6IoTA==}
@@ -2012,6 +2075,14 @@ snapshots:
     dependencies:
       undici-types: 7.16.0
 
+  '@types/react-dom@19.2.3(@types/react@19.2.7)':
+    dependencies:
+      '@types/react': 19.2.7
+
+  '@types/react@19.2.7':
+    dependencies:
+      csstype: 3.2.3
+
   '@vanilla-extract/babel-plugin-debug-ids@1.2.2':
     dependencies:
       '@babel/core': 7.28.5
@@ -2052,6 +2123,14 @@ snapshots:
       - supports-color
 
   '@vanilla-extract/private@1.0.9': {}
+
+  '@vanilla-extract/recipes@0.5.7(@vanilla-extract/css@1.17.5)':
+    dependencies:
+      '@vanilla-extract/css': 1.17.5
+
+  '@vanilla-extract/sprinkles@1.6.5(@vanilla-extract/css@1.17.5)':
+    dependencies:
+      '@vanilla-extract/css': 1.17.5
 
   '@vitest/expect@4.0.14':
     dependencies:
@@ -2151,6 +2230,8 @@ snapshots:
   cli-cursor@5.0.0:
     dependencies:
       restore-cursor: 5.1.0
+
+  clsx@2.1.1: {}
 
   code-block-writer@13.0.3: {}
 
@@ -2523,11 +2604,13 @@ snapshots:
 
   prettier@2.8.8: {}
 
-  prettier@3.6.2: {}
+  prettier@3.7.3: {}
 
   quansync@0.2.11: {}
 
   queue-microtask@1.2.3: {}
+
+  react@19.2.0: {}
 
   read-yaml-file@1.1.0:
     dependencies:
