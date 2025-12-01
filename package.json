@@ -2,6 +2,9 @@
   "name": "vex-repo",
   "private": true,
   "scripts": {
+    "build": "pnpm --filter \"./packages/**\" build",
+    "test": "pnpm --filter \"./packages/**\" test",
+    "typecheck": "pnpm --filter \"./packages/**\" typecheck",
     "release": "changeset version && changeset publish && git push --follow-tags"
   },
   "devDependencies": {

@@ -24,14 +24,14 @@ describe('Vex', () => {
 
       // Verify all three outputs exist
       expect(result?.outputs.css.code).toMatchInlineSnapshot(`
-        ".xdh98w0 {
+        "._15orxqi0 {
           background-color: red;
           font-size: 12;
         }"
       `)
       expect(result?.outputs.js.code).toMatchInlineSnapshot(`
         "import './styles.css.ts.vanilla.css';
-        export var container = 'xdh98w0';"
+        export var container = '_15orxqi0';"
       `)
       expect(result?.outputs.dts.code).toMatchInlineSnapshot(`
         "export declare const container: string;
@@ -53,19 +53,19 @@ describe('Vex', () => {
       const [result] = results
 
       expect(result?.outputs.css.code).toMatchInlineSnapshot(`
-        ".vvr6ah2 {
+        "._7mvs142 {
           container-type: size;
-          container-name: vvr6ah1;
+          container-name: _7mvs141;
           width: 500px;
         }
-        .vvr6ah3 {
-          --vvr6ah0: blue;
-          background-color: var(--vvr6ah0);
+        ._7mvs143 {
+          --_7mvs140: blue;
+          background-color: var(--_7mvs140);
           padding: 20px;
         }
         @media screen and (min-width: 200px) {
-          @container vvr6ah1 (min-width: 400px) {
-            .vvr6ah3 {
+          @container _7mvs141 (min-width: 400px) {
+            ._7mvs143 {
               color: white;
             }
           }
@@ -73,8 +73,8 @@ describe('Vex', () => {
       `)
       expect(result?.outputs.js.code).toMatchInlineSnapshot(`
         "import './styles.css.ts.vanilla.css';
-        export var block = 'vvr6ah3';
-        export var container = 'vvr6ah2';"
+        export var block = '_7mvs143';
+        export var container = '_7mvs142';"
       `)
       expect(result?.outputs.dts.code).toMatchInlineSnapshot(`
         "export declare const container: string;
@@ -96,57 +96,57 @@ describe('Vex', () => {
       expect(result.outputs.css.code).toMatchInlineSnapshot(`
         "@font-face {
           src: local("Impact");
-          font-family: "_1wu32ef0";
+          font-family: "_1ls6w610";
         }
         @font-face {
           src: local("Comic Sans MS");
           font-family: MyGlobalComicSans;
         }
-        @property --_1wu32ef4 {
+        @property --_1ls6w614 {
           syntax: "<number>";
           inherits: false;
           initial-value: 0.5;
         }
-        ._1wu32ef1 {
+        ._1ls6w611 {
           display: flex;
           flex-direction: column;
-          gap: var(--_14vvur64);
-          padding: var(--_14vvur65);
+          gap: var(--_2ss7kn4);
+          padding: var(--_2ss7kn5);
         }
-        ._1wu32ef2 {
+        ._1ls6w612 {
           z-index: 1;
           position: relative;
         }
-        ._1wu32ef3 {
-          font-family: "_1wu32ef0";
-          background-color: var(--_14vvur61, "THIS FALLBACK VALUE SHOULD NEVER BE USED");
-          color: var(--_14vvur62);
+        ._1ls6w613 {
+          font-family: "_1ls6w610";
+          background-color: var(--_2ss7kn1, "THIS FALLBACK VALUE SHOULD NEVER BE USED");
+          color: var(--_2ss7kn2);
           border-radius: 9999px;
         }
-        ._14vvur66 ._14vvur60 ._1wu32ef1 ._1wu32ef3 {
+        ._2ss7kn6 ._2ss7kn0 ._1ls6w611 ._1ls6w613 {
           font-family: MyGlobalComicSans;
           outline: 5px solid red;
         }
-        body ._1wu32ef2:after {
+        body ._1ls6w612:after {
           content: 'I am content';
         }
-        html ._1wu32ef6 {
-          opacity: var(--_1wu32ef4);
+        html ._1ls6w616 {
+          opacity: var(--_1ls6w614);
         }
-        html ._1wu32ef7 {
-          opacity: var(--_1wu32ef4, var(--_1wu32ef5, 0.25));
+        html ._1ls6w617 {
+          opacity: var(--_1ls6w614, var(--_1ls6w615, 0.25));
         }
         @media only screen and (min-width: 500px) {
-          ._1wu32ef1 {
-            border: 1px solid var(--_14vvur61);
+          ._1ls6w611 {
+            border: 1px solid var(--_2ss7kn1);
           }
-          ._1wu32ef3 {
-            padding: var(--_14vvur63);
+          ._1ls6w613 {
+            padding: var(--_2ss7kn3);
           }
         }
         @media only screen and (min-width: 1000px) {
-          ._1wu32ef3 {
-            padding: var(--_14vvur64);
+          ._1ls6w613 {
+            padding: var(--_2ss7kn4);
           }
         }"
       `)
@@ -154,9 +154,9 @@ describe('Vex', () => {
         "import './shared.css.ts.vanilla.css';
         import './themes.css.ts.vanilla.css';
         import './styles.css.ts.vanilla.css';
-        export var button = '_1wu32ef3 blmny40 _1wu32ef2';
-        export var container = '_1wu32ef1';
-        export var opacity = {'1/2':'_1wu32ef6','1/4':'_1wu32ef7'};"
+        export var button = '_1ls6w613 _178hqjy0 _1ls6w612';
+        export var container = '_1ls6w611';
+        export var opacity = {'1/2':'_1ls6w616','1/4':'_1ls6w617'};"
       `)
       expect(result.outputs.dts.code).toMatchInlineSnapshot(`
         "export declare const container: string;
