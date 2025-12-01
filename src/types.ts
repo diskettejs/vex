@@ -13,17 +13,10 @@ export type FileScope = {
   filePath: string
 }
 
-export interface PackageInfo {
-  name: string
-  path: string
-  dirname: string
-  version?: string
-  description?: string
-}
-
 export interface VexOptions {
+  /** Namespace for CSS scoping (used by vanilla-extract to prevent class name collisions) */
+  namespace: string
   tsconfig?: string
-  pkgInfo: PackageInfo
   identifier?: IdentifierOption
   compilerOptions?: ts.CompilerOptions
 }
@@ -50,4 +43,38 @@ export interface ProcessResult {
       path: string
     }
   }
+}
+
+export interface FileInfo {
+  path: string
+  index: number
+  total: number
+}
+
+export interface FileStartEvent extends FileInfo {}
+
+export interface FileCompleteEvent extends FileInfo {
+  result: ProcessResult
+  duration: number
+}
+
+export interface FileErrorEvent extends FileInfo {
+  error: Error
+}
+
+export interface ProcessCallbacks {
+  onFileStart?: (event: FileStartEvent) => void
+  onFileComplete?: (event: FileCompleteEvent) => void | Promise<void>
+  onError?: (event: FileErrorEvent) => void
+}
+
+export interface ProcessFilesOptions extends ProcessCallbacks {
+  /** If true, stop processing on first error. Default: false */
+  failFast?: boolean
+}
+
+export interface ProcessFilesResult {
+  results: ProcessResult[]
+  errors: FileErrorEvent[]
+  totalDuration: number
 }

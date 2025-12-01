@@ -1,10 +1,17 @@
 import fs from 'fs/promises'
-import { dirname, join, relative, resolve } from 'path'
-import type { OutputFile, SourceFile } from 'ts-morph'
-import type { FileScope, OutputPaths, PackageInfo } from './types.ts'
+import path, { dirname, join, relative, resolve } from 'path'
+import type { SourceFile } from 'ts-morph'
+import type { FileScope, OutputPaths } from './types.ts'
 
-// Vite adds a "?used" to CSS files it detects, this isn't relevant for
-// .css.ts files but it's added anyway so we need to allow for it in the file match
+/** Package.json metadata used by CLI */
+export interface PackageInfo {
+  name: string
+  dirname: string
+  path: string
+  version?: string
+  description?: string
+}
+
 export const cssFileFilter: RegExp = /\.css\.(js|cjs|mjs|jsx|ts|tsx)(\?used)?$/
 
 export function formatVanillaPaths(path: string): string {
@@ -18,6 +25,11 @@ export function formatVanillaPaths(path: string): string {
 
   // Append glob pattern for vanilla-extract files
   return `${normalized}/**/*.css.ts`
+}
+
+export function looksLikeDirectory(str: string) {
+  // Ends with separator, or has no extension
+  return str.endsWith('/') || str.endsWith(path.sep) || path.extname(str) === ''
 }
 
 export async function pkgInfo(path = './package.json'): Promise<PackageInfo> {
@@ -107,4 +119,27 @@ export async function writeOutput(output: {
 }): Promise<void> {
   await fs.mkdir(dirname(output.path), { recursive: true })
   await fs.writeFile(output.path, output.code)
+}
+
+const UNITS = ['B', 'kB', 'MB'] as const
+
+export function prettyBytes(bytes: number): string {
+  if (bytes < 1) {
+    return `${bytes} B`
+  }
+
+  const exponent = Math.min(Math.floor(Math.log10(bytes) / 3), UNITS.length - 1)
+  const value = bytes / 1000 ** exponent
+  const formatted = Number(value.toPrecision(3))
+
+  return `${formatted} ${UNITS[exponent]}`
+}
+
+export function prettyMs(ms: number): string {
+  if (ms < 1000) {
+    return `${Math.round(ms)}ms`
+  }
+
+  const seconds = ms / 1000
+  return `${seconds.toFixed(1)}s`
 }

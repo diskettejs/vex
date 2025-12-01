@@ -7,22 +7,31 @@ import { Project, SourceFile, ts, type MemoryEmitResultFile } from 'ts-morph'
 import { VanillaAdapter } from './adapter.ts'
 import {
   cssFileFilter,
+  formatVanillaPaths,
   getOutputPaths,
   invariant,
+  looksLikeDirectory,
   parseFileScope,
   pathFrom,
 } from './misc.ts'
-import type { PackageInfo, ProcessResult, VexOptions } from './types.ts'
+import type {
+  FileErrorEvent,
+  FileInfo,
+  ProcessFilesOptions,
+  ProcessFilesResult,
+  ProcessResult,
+  VexOptions,
+} from './types.ts'
 
 export class Vex {
   #adapter: VanillaAdapter
-  #pkg: PackageInfo
+  #namespace: string
   #require: NodeJS.Require
   #project: Project
 
   constructor(options: VexOptions) {
     this.#adapter = new VanillaAdapter(options.identifier ?? 'short')
-    this.#pkg = options.pkgInfo
+    this.#namespace = options.namespace
     this.#require = createRequire(import.meta.url)
 
     this.#project = new Project({
@@ -32,20 +41,66 @@ export class Vex {
       defaultCompilerOptions: {
         outDir: 'dist',
         declaration: true,
-        target: ts.ScriptTarget.ESNext,
       },
     })
   }
 
-  async addSource(filePath: string): Promise<void> {
-    await this.#project.addSourceFileAtPath(filePath)
+  addSource(path: string): void {
+    const isGlob = /[*?{}[\]]/.test(path) || path.includes('**')
+    if (isGlob) {
+      this.#project.addSourceFilesAtPaths(path)
+      return
+    }
+
+    if (looksLikeDirectory(path)) {
+      this.#project.addSourceFilesAtPaths(formatVanillaPaths(path))
+      return
+    }
+
+    this.#project.addSourceFileAtPath(path)
   }
 
-  async *processFiles(): AsyncGenerator<ProcessResult> {
-    const files = this.#project.getSourceFiles()
+  async processFiles(
+    options: ProcessFilesOptions = {},
+  ): Promise<ProcessFilesResult> {
+    const { onFileStart, onFileComplete, onError, failFast = false } = options
 
-    for (const file of files) {
-      yield this.#process(file)
+    this.#project.resolveSourceFileDependencies()
+
+    const files = this.#project.getSourceFiles()
+    const results: ProcessResult[] = []
+    const errors: FileErrorEvent[] = []
+    const startTime = performance.now()
+
+    for (let index = 0; index < files.length; index++) {
+      const file = files[index]!
+      const path = file.getFilePath()
+      const fileInfo: FileInfo = { path, index, total: files.length }
+
+      onFileStart?.(fileInfo)
+      const fileStartTime = performance.now()
+
+      try {
+        const result = this.#process(file)
+        const duration = performance.now() - fileStartTime
+
+        await onFileComplete?.({ ...fileInfo, result, duration })
+        results.push(result)
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error(String(err))
+        const errorEvent: FileErrorEvent = { ...fileInfo, error }
+
+        onError?.(errorEvent)
+        errors.push(errorEvent)
+
+        if (failFast) break
+      }
+    }
+
+    return {
+      results,
+      errors,
+      totalDuration: performance.now() - startTime,
     }
   }
 
@@ -122,7 +177,7 @@ export class Vex {
 
     return `
       const __vanilla_filescope__ = require("@vanilla-extract/css/fileScope");
-      __vanilla_filescope__.setFileScope("${filePath}", "${this.#pkg.name}");
+      __vanilla_filescope__.setFileScope("${filePath}", "${this.#namespace}");
       ${code}
       __vanilla_filescope__.endFileScope();
     `
@@ -189,6 +244,7 @@ export class Vex {
       emitOnlyDtsFiles: true,
       targetSourceFile: file,
     })
+
     const emitFile = emit.getFiles()[0]
     invariant(emitFile)
     return emitFile

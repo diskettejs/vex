@@ -1,35 +1,29 @@
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
-import type { PackageInfo, ProcessResult } from '../src/types.ts'
 import { Vex } from '../src/vex.ts'
 
 const projectRoot = join(import.meta.dirname, '..')
 const fixtures = (path: string) =>
   fileURLToPath(import.meta.resolve(`./fixtures/${path}`))
 
-const pkg: PackageInfo = {
-  name: '@diskette/nex',
-  dirname: projectRoot,
-  path: projectRoot,
-}
-
-function createNex() {
+function createVex() {
   return new Vex({
+    namespace: '@diskette/nex',
     tsconfig: join(projectRoot, 'tsconfig.json'),
-    pkgInfo: pkg,
     compilerOptions: { outDir: 'dist' },
   })
 }
 
-describe('Nex', () => {
+describe('Vex', () => {
   describe('processFiles', () => {
     test('processes simple style', async () => {
       const filePath = fixtures('simple/styles.css.ts')
 
-      const nex = createNex()
-      await nex.addSource(filePath)
-      const [result] = await Array.fromAsync(nex.processFiles())
+      const vex = createVex()
+      vex.addSource(filePath)
+      const { results } = await vex.processFiles()
+      const [result] = results
 
       // Verify all three outputs exist
       expect(result?.outputs.css.code).toMatchInlineSnapshot(`
@@ -43,8 +37,7 @@ describe('Nex', () => {
         export var container = 'bvos4v0';"
       `)
       expect(result?.outputs.dts.code).toMatchInlineSnapshot(`
-        "import './styles.css.ts.vanilla.css';
-        export declare var container: string;
+        "export declare const container: string;
         "
       `)
 
@@ -57,9 +50,10 @@ describe('Nex', () => {
     test('processes complex styles with createVar and createContainer', async () => {
       const filePath = fixtures('low-level/styles.css.ts')
 
-      const nex = createNex()
-      await nex.addSource(filePath)
-      const [result] = await Array.fromAsync(nex.processFiles())
+      const vex = createVex()
+      vex.addSource(filePath)
+      const { results } = await vex.processFiles()
+      const [result] = results
 
       expect(result?.outputs.css.code).toMatchInlineSnapshot(`
         "._1222fxd2 {
@@ -86,23 +80,19 @@ describe('Nex', () => {
         export var container = '_1222fxd2';"
       `)
       expect(result?.outputs.dts.code).toMatchInlineSnapshot(`
-        "import './styles.css.ts.vanilla.css';
-        export declare var block: string;
-        export declare var container: string;
+        "export declare const container: string;
+        export declare const block: string;
         "
       `)
     })
 
     test('processes files with local imports', async () => {
-      const nex = createNex()
-      await nex.addSource(fixtures('themed/shared.css.ts'))
-      await nex.addSource(fixtures('themed/themes.css.ts'))
-      await nex.addSource(fixtures('themed/styles.css.ts'))
+      const vex = createVex()
+      vex.addSource(fixtures('themed/shared.css.ts'))
+      vex.addSource(fixtures('themed/themes.css.ts'))
+      vex.addSource(fixtures('themed/styles.css.ts'))
 
-      const results: ProcessResult[] = []
-      for await (const result of nex.processFiles()) {
-        results.push(result)
-      }
+      const { results } = await vex.processFiles()
 
       const result = results.find((r) => r.outputs.js.path.includes('styles'))!
 
@@ -172,29 +162,20 @@ describe('Nex', () => {
         export var opacity = {'1/2':'tm8ia16','1/4':'tm8ia17'};"
       `)
       expect(result.outputs.dts.code).toMatchInlineSnapshot(`
-        "import './shared.css.ts.vanilla.css';
-        import './themes.css.ts.vanilla.css';
-        import './styles.css.ts.vanilla.css';
-        export declare var button: string;
-        export declare var container: string;
-        export declare var opacity: {
-            '1/2': string;
-            '1/4': string;
-        };
+        "export declare const container: string;
+        export declare const button: string;
+        export declare const opacity: Record<"1/2" | "1/4", string>;
         "
       `)
     })
 
     test('processes multiple files with glob pattern', async () => {
-      const nex = createNex()
-      await nex.addSource(fixtures('themed/shared.css.ts'))
-      await nex.addSource(fixtures('themed/themes.css.ts'))
-      await nex.addSource(fixtures('themed/styles.css.ts'))
+      const vex = createVex()
+      vex.addSource(fixtures('themed/shared.css.ts'))
+      vex.addSource(fixtures('themed/themes.css.ts'))
+      vex.addSource(fixtures('themed/styles.css.ts'))
 
-      const results: ProcessResult[] = []
-      for await (const result of nex.processFiles()) {
-        results.push(result)
-      }
+      const { results } = await vex.processFiles()
 
       expect(results).toHaveLength(3)
 

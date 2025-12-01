@@ -3,7 +3,6 @@ export type {
   FileScope,
   IdentifierOption,
   OutputPaths,
-  PackageInfo,
   ProcessResult,
   VexOptions,
 } from './types.ts'
