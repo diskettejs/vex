@@ -3,7 +3,7 @@ import { serializeVanillaModule } from '@vanilla-extract/integration'
 import * as esbuild from 'esbuild'
 import { createRequire, isBuiltin } from 'node:module'
 import vm from 'node:vm'
-import { Project, SourceFile, ts } from 'ts-morph'
+import { Project, SourceFile, ts, type MemoryEmitResultFile } from 'ts-morph'
 import { VanillaAdapter } from './adapter.ts'
 import {
   cssFileFilter,
@@ -32,6 +32,7 @@ export class Nex {
       defaultCompilerOptions: {
         outDir: 'dist',
         declaration: true,
+        target: ts.ScriptTarget.ESNext,
       },
     })
   }
@@ -97,16 +98,15 @@ export class Nex {
       unusedCompositionRegex,
     )
 
-    const dts = ts.transpileDeclaration(jsCode, {
-      compilerOptions: this.#project.compilerOptions.get(),
-    })
+    const dts = this.#getFileEmit(file)
     const sourcePath = file.getFilePath()
+
     return {
       source: sourcePath,
       outputs: {
         js: { code: jsCode, path: paths.js },
         css: { code: cssContent, path: paths.css },
-        dts: { code: dts.outputText, path: paths.dts },
+        dts: { code: dts.text, path: paths.dts },
       },
     }
   }
@@ -182,5 +182,15 @@ export class Nex {
 
       return this.#runInVm(file, this.#addFileScope(sourceFile))
     }
+  }
+
+  #getFileEmit(file: SourceFile): MemoryEmitResultFile {
+    const emit = this.#project.emitToMemory({
+      emitOnlyDtsFiles: true,
+      targetSourceFile: file,
+    })
+    const emitFile = emit.getFiles()[0]
+    invariant(emitFile)
+    return emitFile
   }
 }

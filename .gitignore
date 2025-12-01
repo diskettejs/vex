@@ -39,3 +39,6 @@ packages/**/playground/
 .npmrc
 
 tsconfig.tsbuildinfo
+
+fixtures
+assets
