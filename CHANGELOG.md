@@ -1,5 +1,11 @@
 # @diskette/vex
 
+## 0.9.0
+
+### Minor Changes
+
+- 9dcbf5e: improve performance and output formats
+
 ## 0.8.0
 
 ### Minor Changes
