@@ -246,7 +246,7 @@ export class Vex {
       let sourceFile = this.#project.getSourceFile(resolvedPath)
       invariant(sourceFile, `Source file not found in project: ${resolvedPath}`)
 
-      return this.#runInVm(file, this.#addFileScope(sourceFile))
+      return this.#runInVm(sourceFile, this.#addFileScope(sourceFile))
     }
   }
 
