@@ -11,25 +11,25 @@ const fixtures = (path: string) =>
 const pkg: PackageInfo = {
   name: '@diskette/nex',
   dirname: projectRoot,
-  path: '',
+  path: projectRoot,
 }
 
 function createNex() {
   return new Nex({
     tsconfig: join(projectRoot, 'tsconfig.json'),
-    outDir: 'dist',
     pkgInfo: pkg,
+    compilerOptions: { outDir: 'dist' },
   })
 }
 
 describe('Nex', () => {
   describe('processFiles', () => {
-    test.only('processes simple style', async () => {
+    test('processes simple style', async () => {
       const filePath = fixtures('simple/styles.css.ts')
 
       const nex = createNex()
-      const files = nex.processFiles(filePath)
-      const [result] = await Array.fromAsync(files)
+      await nex.addSource(filePath)
+      const [result] = await Array.fromAsync(nex.processFiles())
 
       // Verify all three outputs exist
       expect(result?.outputs.css.code).toMatchInlineSnapshot(`
@@ -58,8 +58,8 @@ describe('Nex', () => {
       const filePath = fixtures('low-level/styles.css.ts')
 
       const nex = createNex()
-      const files = nex.processFiles(filePath)
-      const [result] = await Array.fromAsync(files)
+      await nex.addSource(filePath)
+      const [result] = await Array.fromAsync(nex.processFiles())
 
       expect(result?.outputs.css.code).toMatchInlineSnapshot(`
         "._1222fxd2 {
@@ -95,11 +95,12 @@ describe('Nex', () => {
 
     test('processes files with local imports', async () => {
       const nex = createNex()
-      const results: ProcessResult[] = []
+      await nex.addSource(fixtures('themed/shared.css.ts'))
+      await nex.addSource(fixtures('themed/themes.css.ts'))
+      await nex.addSource(fixtures('themed/styles.css.ts'))
 
-      for await (const result of nex.processFiles(
-        fixtures('themed/*.css.ts'),
-      )) {
+      const results: ProcessResult[] = []
+      for await (const result of nex.processFiles()) {
         results.push(result)
       }
 
@@ -186,11 +187,12 @@ describe('Nex', () => {
 
     test('processes multiple files with glob pattern', async () => {
       const nex = createNex()
-      const results: ProcessResult[] = []
+      await nex.addSource(fixtures('themed/shared.css.ts'))
+      await nex.addSource(fixtures('themed/themes.css.ts'))
+      await nex.addSource(fixtures('themed/styles.css.ts'))
 
-      for await (const result of nex.processFiles(
-        fixtures('themed/*.css.ts'),
-      )) {
+      const results: ProcessResult[] = []
+      for await (const result of nex.processFiles()) {
         results.push(result)
       }
 

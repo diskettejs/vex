@@ -36,10 +36,12 @@ export class Nex {
     })
   }
 
-  async *processFiles(
-    fileGlobs: string | readonly string[] = '**/*.css.ts',
-  ): AsyncGenerator<ProcessResult> {
-    const files = await this.#project.addSourceFilesAtPaths(fileGlobs)
+  async addSource(filePath: string): Promise<void> {
+    await this.#project.addSourceFileAtPath(filePath)
+  }
+
+  async *processFiles(): AsyncGenerator<ProcessResult> {
+    const files = this.#project.getSourceFiles()
 
     for (const file of files) {
       yield this.#process(file)
@@ -50,7 +52,9 @@ export class Nex {
     this.#adapter.reset()
 
     const transformed = this.#addFileScope(file)
+
     const exports = this.#runInVm(file, transformed)
+
     const paths = getOutputPaths(file)
 
     const cssImports: string[] = []

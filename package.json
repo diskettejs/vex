@@ -1,6 +1,15 @@
 {
   "name": "@diskette/nex",
   "version": "0.0.0",
+  "description": "Compile vanilla-extract .css.ts files into CSS, JS, and TypeScript declarations",
+  "keywords": [
+    "vanilla-extract",
+    "css",
+    "css-in-js",
+    "typescript",
+    "compiler",
+    "build-tool"
+  ],
   "type": "module",
   "scripts": {
     "dev": "tsc --watch",
@@ -29,6 +38,7 @@
   },
   "dependencies": {
     "@vanilla-extract/integration": "8.0.6",
+    "chalk": "^5.6.2",
     "citty": "^0.1.6",
     "esbuild": "^0.27.0",
     "ts-morph": "^27.0.2"
