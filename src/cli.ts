@@ -91,18 +91,13 @@ const main = defineCommand({
           )
         }
       },
-
-      onError: ({ path, error }) => {
-        const displayPath = relative(cwd, path)
-        console.error(`Error processing ${displayPath}: ${error.message}`)
-      },
     })
 
     if (!args.quiet) {
       logUpdate.clear()
       const formatter =
         args['log-level'] === 'verbose' ? formatOutputs : formatOutputsTable
-      console.log(formatter(results, totalDuration))
+      console.log(formatter(results, totalDuration, errors))
     }
 
     if (errors.length > 0) {

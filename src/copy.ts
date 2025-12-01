@@ -1,7 +1,7 @@
 import chalk from 'chalk'
 import path from 'node:path'
 import { prettyBytes, prettyMs } from './misc.ts'
-import type { ProcessResult } from './types.ts'
+import type { FileErrorEvent, ProcessResult } from './types.ts'
 
 const rel = (p: string) => path.relative(process.cwd(), p)
 
@@ -30,6 +30,7 @@ ${chalk.bold('Examples:')}
 export function formatOutputs(
   results: ProcessResult[],
   totalDuration: number,
+  errors: FileErrorEvent[] = [],
 ): string {
   const lines: string[] = []
   const arrow = chalk.dim('→')
@@ -45,9 +46,19 @@ export function formatOutputs(
   const totalOutputs = results.length * 3
   lines.push(
     chalk.green(
-      `${results.length} source${results.length === 1 ? '' : 's'} → ${totalOutputs} files`,
+      `✓ ${results.length} source${results.length === 1 ? '' : 's'} → ${totalOutputs} files`,
     ),
   )
+
+  if (errors.length > 0) {
+    lines.push(
+      chalk.red(`✗ ${errors.length} error${errors.length === 1 ? '' : 's'}:`),
+    )
+    for (const { path, error } of errors) {
+      const errorMsg = error.message.split('\n')[0]
+      lines.push(`  ${chalk.dim('•')} ${rel(path)}: ${errorMsg}`)
+    }
+  }
 
   return lines.join('\n')
 }
@@ -72,6 +83,7 @@ interface OutputRow {
 export function formatOutputsTable(
   results: ProcessResult[],
   totalDuration: number,
+  errors: FileErrorEvent[] = [],
 ): string {
   const rows: OutputRow[] = []
 
@@ -108,10 +120,21 @@ export function formatOutputsTable(
 
   const totalSize = rows.reduce((sum, r) => sum + r.size, 0)
   lines.push(chalk.dim('─'.repeat(maxPathLen + maxTypeLen + 16)))
-  lines.push(
-    chalk.green(`${rows.length} files`.padEnd(maxPathLen + maxTypeLen + 4)) +
-      chalk.dim(`${prettyBytes(totalSize)}  ${prettyMs(totalDuration)}`),
-  )
+
+  const successLine =
+    chalk.green(`✓ ${rows.length} files`.padEnd(maxPathLen + maxTypeLen + 4)) +
+    chalk.dim(`${prettyBytes(totalSize)}  ${prettyMs(totalDuration)}`)
+  lines.push(successLine)
+
+  if (errors.length > 0) {
+    lines.push(
+      chalk.red(`✗ ${errors.length} error${errors.length === 1 ? '' : 's'}:`),
+    )
+    for (const { path, error } of errors) {
+      const errorMsg = error.message.split('\n')[0] // First line only
+      lines.push(`  ${chalk.dim('•')} ${rel(path)}: ${chalk.red(errorMsg)}`)
+    }
+  }
 
   return lines.join('\n')
 }

@@ -3,7 +3,7 @@ import { serializeVanillaModule } from '@vanilla-extract/integration'
 import * as esbuild from 'esbuild'
 import { createRequire, isBuiltin } from 'node:module'
 import vm from 'node:vm'
-import { Project, SourceFile, ts, type MemoryEmitResultFile } from 'ts-morph'
+import { Project, SourceFile, type MemoryEmitResultFile } from 'ts-morph'
 import { VanillaAdapter } from './adapter.ts'
 import {
   cssFileFilter,
@@ -65,7 +65,8 @@ export class Vex {
   ): Promise<ProcessFilesResult> {
     const { onFileStart, onFileComplete, onError, failFast = false } = options
 
-    this.#project.resolveSourceFileDependencies()
+    // This speeds up processing but breaks on files with function exports and also all deps get included as outputs. Need to find a workaround
+    // this.#project.resolveSourceFileDependencies()
 
     const files = this.#project.getSourceFiles()
     const results: ProcessResult[] = []
