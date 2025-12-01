@@ -1,5 +1,11 @@
 # @diskette/vex
 
+## 0.8.0
+
+### Minor Changes
+
+- 92537e9: rename Nex to Vex. Export types
+
 ## 0.7.1
 
 ### Patch Changes
