@@ -1,5 +1,11 @@
 # @diskette/vex
 
+## 0.7.0
+
+### Minor Changes
+
+- 957faba: rework implementation
+
 ## 0.6.1
 
 ### Patch Changes

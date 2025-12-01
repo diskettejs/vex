@@ -1,6 +1,6 @@
 {
   "name": "@diskette/vex",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Compile vanilla-extract .css.ts files into CSS, JS, and TypeScript declarations",
   "keywords": [
     "vanilla-extract",
@@ -17,7 +17,8 @@
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist node_modules tsconfig.tsbuildinfo",
-    "prepublishOnly": "pnpm build"
+    "prepublishOnly": "pnpm build",
+    "release": "changeset version && changeset publish && git push --follow-tags"
   },
   "exports": {
     ".": {
