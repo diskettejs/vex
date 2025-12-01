@@ -1,5 +1,11 @@
 # @diskette/vex
 
+## 0.7.1
+
+### Patch Changes
+
+- 7841d5d: fix .d.ts type generation
+
 ## 0.7.0
 
 ### Minor Changes
