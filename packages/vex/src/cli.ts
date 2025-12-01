@@ -2,7 +2,7 @@
 
 import { defineCommand, runMain } from 'citty'
 import logUpdate from 'log-update'
-import { basename, join, relative } from 'node:path'
+import { basename, relative } from 'node:path'
 import {
   renderDebugInfo,
   renderSuccess,

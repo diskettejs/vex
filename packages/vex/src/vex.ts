@@ -80,16 +80,24 @@ export class Vex {
     const errors: FileErrorEvent[] = []
     const startTime = performance.now()
 
+    const transpiled = new Map<string, string>()
+    for (const file of files) {
+      const filePath = file.getFilePath()
+      const code = this.#transpile(file)
+      transpiled.set(filePath, this.#wrapWithFileScope(code, filePath))
+    }
+
     for (let index = 0; index < files.length; index++) {
       const file = files[index]!
       const path = file.getFilePath()
+
       const fileInfo: FileInfo = { path, index, total: files.length }
 
       onFileStart?.(fileInfo)
       const fileStartTime = performance.now()
 
       try {
-        const result = this.#process(file)
+        const result = this.#process(file, transpiled)
         const duration = performance.now() - fileStartTime
 
         await onFileComplete?.({ ...fileInfo, result, duration })
@@ -112,12 +120,14 @@ export class Vex {
     }
   }
 
-  #process(file: SourceFile): ProcessResult {
+  #process(file: SourceFile, transpiled: Map<string, string>): ProcessResult {
     this.#adapter.reset()
 
-    const transformed = this.#addFileScope(file)
+    const filePath = file.getFilePath()
+    const code = transpiled.get(filePath)
+    invariant(code, `No transpiled code found for: ${filePath}`)
 
-    const exports = this.#runInVm(file, transformed)
+    const exports = this.#runInVm(filePath, code, transpiled)
 
     const paths = getOutputPaths(file)
 
@@ -174,27 +184,31 @@ export class Vex {
     }
   }
 
-  #addFileScope(file: SourceFile): string {
+  #transpile(file: SourceFile, options?: esbuild.TransformOptions): string {
     const source = file.getText()
     const filePath = file.getFilePath()
-
-    // TODO: move this out of this method
     const { code } = esbuild.transformSync(source, {
       loader: getEsBuildLoader(filePath),
       format: 'cjs',
+      ...options,
     })
+    return code
+  }
 
-    const wrappedCode = `
+  #wrapWithFileScope(code: string, filePath: string): string {
+    return `
       const __vanilla_filescope__ = require("@vanilla-extract/css/fileScope");
       __vanilla_filescope__.setFileScope("${filePath}", "${this.#namespace}");
       ${code}
       __vanilla_filescope__.endFileScope();
     `
-
-    return wrappedCode
   }
 
-  #runInVm(file: SourceFile, code: string): Record<string, unknown> {
+  #runInVm(
+    filePath: string,
+    code: string,
+    transpiled: Map<string, string>,
+  ): Record<string, unknown> {
     const wrappedCode = `
       require('@vanilla-extract/css/adapter').setAdapter(__adapter__);
       ${code}
@@ -205,33 +219,18 @@ export class Vex {
     vm.runInNewContext(wrappedCode, {
       __adapter__: this.#adapter,
       console,
-      require: this.#createScopedRequire(file),
+      require: this.#createScopedRequire(filePath, transpiled),
       module: moduleObj,
     })
 
     return moduleObj.exports
   }
 
-  #createScopedRequire(
-    file: SourceFile,
-    options?: { blockedModules?: string[]; allowedBuiltins?: string[] },
-  ) {
-    const path = file.getFilePath()
-    const scopedRequire = createRequire(path)
-    const { allowedBuiltins = [], blockedModules = [] } = options ?? {}
+  #createScopedRequire(filePath: string, transpiled: Map<string, string>) {
+    const scopedRequire = createRequire(filePath)
 
     return (moduleId: string) => {
-      if (blockedModules.includes(moduleId)) {
-        throw new Error(`Module "${moduleId}" is not allowed`)
-      }
-
       if (isBuiltin(moduleId)) {
-        if (
-          allowedBuiltins &&
-          !allowedBuiltins.includes(moduleId.replace(/^node:/, ''))
-        ) {
-          throw new Error(`Built-in module "${moduleId}" is not allowed`)
-        }
         return this.#require(moduleId)
       }
 
@@ -243,10 +242,10 @@ export class Vex {
       }
 
       const resolvedPath = scopedRequire.resolve(moduleId)
-      let sourceFile = this.#project.getSourceFile(resolvedPath)
-      invariant(sourceFile, `Source file not found in project: ${resolvedPath}`)
+      const code = transpiled.get(resolvedPath)
+      invariant(code, `No transpiled code found for: ${resolvedPath}`)
 
-      return this.#runInVm(sourceFile, this.#addFileScope(sourceFile))
+      return this.#runInVm(resolvedPath, code, transpiled)
     }
   }
 

@@ -43,13 +43,17 @@ vex "src/components" -o dist/css -n
 
 ### Options
 
-| Option                | Alias | Description                                                      | Default         |
-| --------------------- | ----- | ---------------------------------------------------------------- | --------------- |
-| `--output <dir>`      | `-o`  | Directory for compiled CSS, JS, and .d.ts output                 | `dist`          |
-| `--tsconfig <path>`   |       | Path to tsconfig.json for TypeScript resolution                  | `tsconfig.json` |
-| `--dry-run`           | `-n`  | Process files without writing output                             | `false`         |
-| `--quiet`             | `-q`  | Suppress non-error output                                        | `false`         |
-| `--log-level <level>` | `-l`  | Output verbosity: `normal` (table) or `verbose` (detailed paths) | `normal`        |
+| Option                  | Alias | Description                                                      | Default |
+| ----------------------- | ----- | ---------------------------------------------------------------- | ------- |
+| `--output <dir>`        | `-o`  | Directory for compiled CSS, JS, and .d.ts output                 | `dist`  |
+| `--namespace <name>`    | `-p`  | Namespace for CSS scoping                                        | \*      |
+| `--tsconfig <path>`     |       | Path to tsconfig.json for TypeScript resolution                  |         |
+| `--dry-run`             | `-n`  | Process files without writing output                             |         |
+| `--quiet`               | `-q`  | Suppress non-error output                                        |         |
+| `--log-level <level>`   | `-l`  | Output verbosity: `normal` (table) or `verbose` (detailed paths) | `normal`|
+| `--debug`               | `-d`  | Show configuration and matched files before processing           |         |
+
+\* Defaults to `name` in package.json, or the current directory name
 
 ## Output
 
