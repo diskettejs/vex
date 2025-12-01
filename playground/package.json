@@ -13,7 +13,9 @@
     }
   },
   "scripts": {
-    "build:css": "rm -rf dist && vex src --output dist",
+    "build": "rm -rf dist && pnpm build:js && pnpm build:css",
+    "build:js": "tsc -p tsconfig.build.json",
+    "build:css": "vex src --output dist",
     "clean": "rm -rf .turbo node_modules dist"
   },
   "devDependencies": {

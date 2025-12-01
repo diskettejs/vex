@@ -1,5 +1,11 @@
 # @diskette/vex
 
+## 0.12.0
+
+### Minor Changes
+
+- fd95bdf: refactor esbuild transform use to be async
+
 ## 0.11.0
 
 ### Minor Changes
