@@ -13,7 +13,7 @@
     }
   },
   "scripts": {
-    "build:css": "vex src --output dist",
+    "build:css": "rm -rf dist && vex src --output dist",
     "clean": "rm -rf .turbo node_modules dist"
   },
   "devDependencies": {

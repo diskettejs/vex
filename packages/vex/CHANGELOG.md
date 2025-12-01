@@ -1,5 +1,11 @@
 # @diskette/vex
 
+## 0.11.0
+
+### Minor Changes
+
+- 27f1c9b: refactor internal processing flow
+
 ## 0.10.1
 
 ### Patch Changes
