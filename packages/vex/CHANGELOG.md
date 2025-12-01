@@ -1,5 +1,11 @@
 # @diskette/vex
 
+## 0.10.1
+
+### Patch Changes
+
+- bf4dad1: fix recursive processing scoping
+
 ## 0.10.0
 
 ### Minor Changes
