@@ -80,12 +80,9 @@ export class Vex {
     const errors: FileErrorEvent[] = []
     const startTime = performance.now()
 
-    const transpiled = new Map<string, string>()
-    for (const file of files) {
-      const filePath = file.getFilePath()
-      const code = this.#transpile(file)
-      transpiled.set(filePath, this.#wrapWithFileScope(code, filePath))
-    }
+    const transpiled = new Map(
+      await Promise.all(files.map((file) => this.#transform(file))),
+    )
 
     for (let index = 0; index < files.length; index++) {
       const file = files[index]!
@@ -184,24 +181,21 @@ export class Vex {
     }
   }
 
-  #transpile(file: SourceFile, options?: esbuild.TransformOptions): string {
+  async #transform(file: SourceFile): Promise<[string, string]> {
     const source = file.getText()
     const filePath = file.getFilePath()
-    const { code } = esbuild.transformSync(source, {
+    const { code } = await esbuild.transform(source, {
       loader: getEsBuildLoader(filePath),
       format: 'cjs',
-      ...options,
     })
-    return code
-  }
-
-  #wrapWithFileScope(code: string, filePath: string): string {
-    return `
+    const wrapped = `
       const __vanilla_filescope__ = require("@vanilla-extract/css/fileScope");
       __vanilla_filescope__.setFileScope("${filePath}", "${this.#namespace}");
       ${code}
       __vanilla_filescope__.endFileScope();
     `
+
+    return [filePath, wrapped]
   }
 
   #runInVm(
