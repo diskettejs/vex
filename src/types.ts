@@ -21,7 +21,7 @@ export interface PackageInfo {
   description?: string
 }
 
-export interface NexOptions {
+export interface VexOptions {
   tsconfig?: string
   pkgInfo: PackageInfo
   identifier?: IdentifierOption

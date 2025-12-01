@@ -1,8 +1,8 @@
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
-import { Nex } from '../src/nex.ts'
 import type { PackageInfo, ProcessResult } from '../src/types.ts'
+import { Vex } from '../src/vex.ts'
 
 const projectRoot = join(import.meta.dirname, '..')
 const fixtures = (path: string) =>
@@ -15,7 +15,7 @@ const pkg: PackageInfo = {
 }
 
 function createNex() {
-  return new Nex({
+  return new Vex({
     tsconfig: join(projectRoot, 'tsconfig.json'),
     pkgInfo: pkg,
     compilerOptions: { outDir: 'dist' },

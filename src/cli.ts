@@ -1,14 +1,16 @@
+#!/usr/bin/env node
+
 import { defineCommand, runMain } from 'citty'
 import { formatOutputs, renderUsage } from './copy.ts'
 import { pkgInfo, writeOutput } from './misc.ts'
-import { Nex } from './nex.ts'
 import type { ProcessResult } from './types.ts'
+import { Vex } from './vex.ts'
 
 const pkg = await pkgInfo()
 
 const main = defineCommand({
   meta: {
-    name: 'nex',
+    name: 'vex',
     version: pkg.version ?? '0.0.0',
     description: pkg.description ?? '',
   },
@@ -50,7 +52,7 @@ const main = defineCommand({
       return
     }
 
-    const nex = new Nex({
+    const nex = new Vex({
       tsconfig: args.tsconfig,
       pkgInfo: pkg,
       compilerOptions: { outDir: args.output },

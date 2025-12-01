@@ -12,15 +12,15 @@ import {
   parseFileScope,
   pathFrom,
 } from './misc.ts'
-import type { NexOptions, PackageInfo, ProcessResult } from './types.ts'
+import type { PackageInfo, ProcessResult, VexOptions } from './types.ts'
 
-export class Nex {
+export class Vex {
   #adapter: VanillaAdapter
   #pkg: PackageInfo
   #require: NodeJS.Require
   #project: Project
 
-  constructor(options: NexOptions) {
+  constructor(options: VexOptions) {
     this.#adapter = new VanillaAdapter(options.identifier ?? 'short')
     this.#pkg = options.pkgInfo
     this.#require = createRequire(import.meta.url)
