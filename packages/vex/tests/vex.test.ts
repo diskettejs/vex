@@ -1,16 +1,13 @@
-import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import { Vex } from '../src/vex.ts'
 
-const projectRoot = join(import.meta.dirname, '..')
 const fixtures = (path: string) =>
   fileURLToPath(import.meta.resolve(`./fixtures/${path}`))
 
 function createVex() {
   return new Vex({
     namespace: '@diskette/nex',
-    tsconfig: join(projectRoot, 'tsconfig.json'),
     compilerOptions: { outDir: 'dist' },
   })
 }
@@ -27,14 +24,14 @@ describe('Vex', () => {
 
       // Verify all three outputs exist
       expect(result?.outputs.css.code).toMatchInlineSnapshot(`
-        ".bvos4v0 {
+        ".xdh98w0 {
           background-color: red;
           font-size: 12;
         }"
       `)
       expect(result?.outputs.js.code).toMatchInlineSnapshot(`
         "import './styles.css.ts.vanilla.css';
-        export var container = 'bvos4v0';"
+        export var container = 'xdh98w0';"
       `)
       expect(result?.outputs.dts.code).toMatchInlineSnapshot(`
         "export declare const container: string;
@@ -56,19 +53,19 @@ describe('Vex', () => {
       const [result] = results
 
       expect(result?.outputs.css.code).toMatchInlineSnapshot(`
-        "._1222fxd2 {
+        ".vvr6ah2 {
           container-type: size;
-          container-name: _1222fxd1;
+          container-name: vvr6ah1;
           width: 500px;
         }
-        ._1222fxd3 {
-          --_1222fxd0: blue;
-          background-color: var(--_1222fxd0);
+        .vvr6ah3 {
+          --vvr6ah0: blue;
+          background-color: var(--vvr6ah0);
           padding: 20px;
         }
         @media screen and (min-width: 200px) {
-          @container _1222fxd1 (min-width: 400px) {
-            ._1222fxd3 {
+          @container vvr6ah1 (min-width: 400px) {
+            .vvr6ah3 {
               color: white;
             }
           }
@@ -76,8 +73,8 @@ describe('Vex', () => {
       `)
       expect(result?.outputs.js.code).toMatchInlineSnapshot(`
         "import './styles.css.ts.vanilla.css';
-        export var block = '_1222fxd3';
-        export var container = '_1222fxd2';"
+        export var block = 'vvr6ah3';
+        export var container = 'vvr6ah2';"
       `)
       expect(result?.outputs.dts.code).toMatchInlineSnapshot(`
         "export declare const container: string;
@@ -99,57 +96,57 @@ describe('Vex', () => {
       expect(result.outputs.css.code).toMatchInlineSnapshot(`
         "@font-face {
           src: local("Impact");
-          font-family: "tm8ia10";
+          font-family: "_1wu32ef0";
         }
         @font-face {
           src: local("Comic Sans MS");
           font-family: MyGlobalComicSans;
         }
-        @property --tm8ia14 {
+        @property --_1wu32ef4 {
           syntax: "<number>";
           inherits: false;
           initial-value: 0.5;
         }
-        .tm8ia11 {
+        ._1wu32ef1 {
           display: flex;
           flex-direction: column;
-          gap: var(--_1nwt1lg4);
-          padding: var(--_1nwt1lg5);
+          gap: var(--_14vvur64);
+          padding: var(--_14vvur65);
         }
-        .tm8ia12 {
+        ._1wu32ef2 {
           z-index: 1;
           position: relative;
         }
-        .tm8ia13 {
-          font-family: "tm8ia10";
-          background-color: var(--_1nwt1lg1, "THIS FALLBACK VALUE SHOULD NEVER BE USED");
-          color: var(--_1nwt1lg2);
+        ._1wu32ef3 {
+          font-family: "_1wu32ef0";
+          background-color: var(--_14vvur61, "THIS FALLBACK VALUE SHOULD NEVER BE USED");
+          color: var(--_14vvur62);
           border-radius: 9999px;
         }
-        ._1nwt1lg6 ._1nwt1lg0 .tm8ia11 .tm8ia13 {
+        ._14vvur66 ._14vvur60 ._1wu32ef1 ._1wu32ef3 {
           font-family: MyGlobalComicSans;
           outline: 5px solid red;
         }
-        body .tm8ia12:after {
+        body ._1wu32ef2:after {
           content: 'I am content';
         }
-        html .tm8ia16 {
-          opacity: var(--tm8ia14);
+        html ._1wu32ef6 {
+          opacity: var(--_1wu32ef4);
         }
-        html .tm8ia17 {
-          opacity: var(--tm8ia14, var(--tm8ia15, 0.25));
+        html ._1wu32ef7 {
+          opacity: var(--_1wu32ef4, var(--_1wu32ef5, 0.25));
         }
         @media only screen and (min-width: 500px) {
-          .tm8ia11 {
-            border: 1px solid var(--_1nwt1lg1);
+          ._1wu32ef1 {
+            border: 1px solid var(--_14vvur61);
           }
-          .tm8ia13 {
-            padding: var(--_1nwt1lg3);
+          ._1wu32ef3 {
+            padding: var(--_14vvur63);
           }
         }
         @media only screen and (min-width: 1000px) {
-          .tm8ia13 {
-            padding: var(--_1nwt1lg4);
+          ._1wu32ef3 {
+            padding: var(--_14vvur64);
           }
         }"
       `)
@@ -157,9 +154,9 @@ describe('Vex', () => {
         "import './shared.css.ts.vanilla.css';
         import './themes.css.ts.vanilla.css';
         import './styles.css.ts.vanilla.css';
-        export var button = 'tm8ia13 rlovln0 tm8ia12';
-        export var container = 'tm8ia11';
-        export var opacity = {'1/2':'tm8ia16','1/4':'tm8ia17'};"
+        export var button = '_1wu32ef3 blmny40 _1wu32ef2';
+        export var container = '_1wu32ef1';
+        export var opacity = {'1/2':'_1wu32ef6','1/4':'_1wu32ef7'};"
       `)
       expect(result.outputs.dts.code).toMatchInlineSnapshot(`
         "export declare const container: string;

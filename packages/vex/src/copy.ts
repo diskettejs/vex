@@ -1,5 +1,6 @@
 import chalk from 'chalk'
 import path from 'node:path'
+import { ts } from 'ts-morph'
 import { prettyBytes, prettyMs } from './misc.ts'
 import type { FileErrorEvent, ProcessResult } from './types.ts'
 
@@ -27,11 +28,11 @@ ${chalk.bold('Examples:')}
     ${cmd('vex "src/components" -o dist/css -n')}
 `
 
-export function formatOutputs(
+export function renderSuccess(
   results: ProcessResult[],
   totalDuration: number,
   errors: FileErrorEvent[] = [],
-): string {
+): void {
   const lines: string[] = []
   const arrow = chalk.dim('→')
 
@@ -60,10 +61,10 @@ export function formatOutputs(
     }
   }
 
-  return lines.join('\n')
+  console.log(lines.join('\n'))
 }
 
-export function renderUsage() {
+export function renderUsage(): void {
   console.log(
     `${chalk.bold('vex')} ${chalk.dim('- vanilla-extract CSS processor')}\n`,
   )
@@ -80,11 +81,11 @@ interface OutputRow {
   size: number
 }
 
-export function formatOutputsTable(
+export function renderSuccessTable(
   results: ProcessResult[],
   totalDuration: number,
   errors: FileErrorEvent[] = [],
-): string {
+): void {
   const rows: OutputRow[] = []
 
   for (const { outputs } of results) {
@@ -137,11 +138,76 @@ export function formatOutputsTable(
     }
   }
 
-  return lines.join('\n')
+  console.log(lines.join('\n'))
 }
 
-// TODO: add error copy
-/**
- * Potential errors
- * - Vex#addSource: `File not found: /path/to/file.ts`
- */
+const label = (s: string) => chalk.dim(s.padEnd(20))
+const enumMapping: Record<string, Record<number, string>> = {
+  target: ts.ScriptTarget,
+  module: ts.ModuleKind,
+  moduleResolution: ts.ModuleResolutionKind,
+  jsx: ts.JsxEmit,
+  newLine: ts.NewLineKind,
+  moduleDetection: ts.ModuleDetectionKind,
+}
+
+export function renderDebugInfo(config: {
+  namespace: string
+  args: Record<string, any>
+  compilerOptions: ts.CompilerOptions
+  matchedFiles: string[]
+}): void {
+  const lines: string[] = []
+
+  lines.push(chalk.bold('Configuration'))
+  lines.push(chalk.dim('─'.repeat(50)))
+  lines.push(`${label('Namespace')} ${chalk.cyan(config.namespace)}`)
+  lines.push(`${label('Output Dir')} ${chalk.cyan(config.args.output)}`)
+  if (config.args.tsconfig || config.args.tsconfigPath) {
+    lines.push(
+      `${label('TSConfig')} ${chalk.cyan(config.args.tsconfig ?? config.args.tsconfigPath)}`,
+    )
+  }
+  lines.push(
+    `${label('Dry Run')} ${chalk.cyan(config.args['dry-run'] ?? false)}`,
+  )
+  lines.push(`${label('Quiet')} ${chalk.cyan(config.args.quiet ?? false)}`)
+  lines.push(`${label('Log Level')} ${chalk.cyan(config.args['log-level'])}`)
+  lines.push('')
+
+  lines.push(chalk.bold('Compiler Options'))
+  lines.push(chalk.dim('─'.repeat(50)))
+
+  const opts = config.compilerOptions
+
+  for (const [key, value] of Object.entries(opts)) {
+    if (value === undefined) continue
+
+    let formattedValue: string
+    if (typeof value === 'number' && enumMapping[key]) {
+      formattedValue = enumMapping[key][value] ?? String(value)
+    } else if (typeof value === 'object') {
+      formattedValue = JSON.stringify(value)
+    } else {
+      formattedValue = String(value)
+    }
+
+    lines.push(`${label(key)} ${chalk.cyan(formattedValue)}`)
+  }
+
+  lines.push('')
+
+  const fileCount = config.matchedFiles.length
+  lines.push(chalk.bold(`Input Files (${fileCount})`))
+  lines.push(chalk.dim('─'.repeat(50)))
+
+  if (fileCount === 0) {
+    lines.push(chalk.yellow('  No files matched'))
+  } else {
+    for (const file of config.matchedFiles) {
+      lines.push(`  ${chalk.dim('•')} ${rel(file)}`)
+    }
+  }
+
+  console.log(lines.join('\n'))
+}

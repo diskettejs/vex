@@ -2,9 +2,19 @@
 
 import { defineCommand, runMain } from 'citty'
 import logUpdate from 'log-update'
-import { basename, relative } from 'node:path'
-import { formatOutputs, formatOutputsTable, renderUsage } from './copy.ts'
-import { pkgInfo, writeOutput } from './misc.ts'
+import { basename, join, relative } from 'node:path'
+import {
+  renderDebugInfo,
+  renderSuccess,
+  renderSuccessTable,
+  renderUsage,
+} from './copy.ts'
+import {
+  buildVexCompilerOptions,
+  findTsConfig,
+  pkgInfo,
+  writeOutput,
+} from './misc.ts'
 import { Vex } from './vex.ts'
 
 const pkg = await pkgInfo().catch(() => null)
@@ -57,10 +67,15 @@ const main = defineCommand({
         'Output verbosity: normal (table) or verbose (detailed paths)',
       default: 'normal',
     },
+    debug: {
+      type: 'boolean',
+      alias: 'd',
+      description: 'Show configuration and matched files before processing',
+    },
   },
 
   async run({ args }) {
-    if (args._.length === 0) {
+    if (args._.length === 0 && !args.debug) {
       renderUsage()
       return
     }
@@ -68,13 +83,30 @@ const main = defineCommand({
     const cwd = process.cwd()
     const namespace = args.namespace ?? pkg?.name ?? basename(cwd)
 
+    const { compilerOptions, tsconfigPath } =
+      findTsConfig({ searchPath: args.tsconfig }) ?? {}
+
+    const vexCompilerOptions = buildVexCompilerOptions(
+      args.output,
+      compilerOptions,
+    )
+
     const vex = new Vex({
       namespace,
-      tsconfig: args.tsconfig,
-      compilerOptions: { outDir: args.output },
+      compilerOptions: vexCompilerOptions,
     })
 
     args._.map((file) => vex.addSource(file))
+
+    if (args.debug) {
+      renderDebugInfo({
+        namespace,
+        args: { ...args, tsconfigPath },
+        compilerOptions: vexCompilerOptions,
+        matchedFiles: vex.files,
+      })
+      return
+    }
 
     const { results, errors, totalDuration } = await vex.processFiles({
       onFileStart({ path, index, total }) {
@@ -95,9 +127,9 @@ const main = defineCommand({
 
     if (!args.quiet) {
       logUpdate.clear()
-      const formatter =
-        args['log-level'] === 'verbose' ? formatOutputs : formatOutputsTable
-      console.log(formatter(results, totalDuration, errors))
+      const renderResults =
+        args['log-level'] === 'verbose' ? renderSuccess : renderSuccessTable
+      renderResults(results, totalDuration, errors)
     }
 
     if (errors.length > 0) {

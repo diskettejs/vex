@@ -16,7 +16,6 @@ export type FileScope = {
 export interface VexOptions {
   /** Namespace for CSS scoping (used by vanilla-extract to prevent class name collisions) */
   namespace: string
-  tsconfig?: string
   identifier?: IdentifierOption
   compilerOptions?: ts.CompilerOptions
 }
@@ -77,4 +76,12 @@ export interface ProcessFilesResult {
   results: ProcessResult[]
   errors: FileErrorEvent[]
   totalDuration: number
+}
+
+export interface PackageInfo {
+  name: string
+  dirname: string
+  path: string
+  version?: string
+  description?: string
 }

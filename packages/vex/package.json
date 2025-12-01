@@ -12,7 +12,7 @@
   ],
   "type": "module",
   "scripts": {
-    "dev": "tsc --watch",
+    "dev": "tsc -p tsconfig.build.json --watch",
     "build": "rm -rf dist && tsc -p tsconfig.build.json",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",

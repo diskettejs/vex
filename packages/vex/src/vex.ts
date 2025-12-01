@@ -3,11 +3,12 @@ import { serializeVanillaModule } from '@vanilla-extract/integration'
 import * as esbuild from 'esbuild'
 import { createRequire, isBuiltin } from 'node:module'
 import vm from 'node:vm'
-import { Project, SourceFile, type MemoryEmitResultFile } from 'ts-morph'
+import { Project, SourceFile, ts, type MemoryEmitResultFile } from 'ts-morph'
 import { VanillaAdapter } from './adapter.ts'
 import {
   cssFileFilter,
   formatVanillaPaths,
+  getEsBuildLoader,
   getOutputPaths,
   invariant,
   looksLikeDirectory,
@@ -35,14 +36,20 @@ export class Vex {
     this.#require = createRequire(import.meta.url)
 
     this.#project = new Project({
-      tsConfigFilePath: options.tsconfig,
       compilerOptions: options.compilerOptions,
-      skipAddingFilesFromTsConfig: true,
       defaultCompilerOptions: {
         outDir: 'dist',
         declaration: true,
       },
     })
+  }
+
+  get compilerOptions(): ts.CompilerOptions {
+    return this.#project.compilerOptions.get()
+  }
+
+  get files(): string[] {
+    return this.#project.getSourceFiles().map((sf) => sf.getFilePath())
   }
 
   addSource(path: string): void {
@@ -67,7 +74,7 @@ export class Vex {
 
     // This speeds up processing but breaks on files with function exports and also all deps get included as outputs. Need to find a workaround
     // this.#project.resolveSourceFileDependencies()
-    this.#project.compilerOptions.get
+
     const files = this.#project.getSourceFiles()
     const results: ProcessResult[] = []
     const errors: FileErrorEvent[] = []
@@ -170,18 +177,21 @@ export class Vex {
   #addFileScope(file: SourceFile): string {
     const source = file.getText()
     const filePath = file.getFilePath()
+
     // TODO: move this out of this method
     const { code } = esbuild.transformSync(source, {
-      loader: 'ts',
+      loader: getEsBuildLoader(filePath),
       format: 'cjs',
     })
 
-    return `
+    const wrappedCode = `
       const __vanilla_filescope__ = require("@vanilla-extract/css/fileScope");
       __vanilla_filescope__.setFileScope("${filePath}", "${this.#namespace}");
       ${code}
       __vanilla_filescope__.endFileScope();
     `
+
+    return wrappedCode
   }
 
   #runInVm(file: SourceFile, code: string): Record<string, unknown> {
