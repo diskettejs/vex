@@ -1,5 +1,11 @@
 # @diskette/vex
 
+## 0.9.1
+
+### Patch Changes
+
+- 6a87d83: remove included all source deps. improve errors feedback
+
 ## 0.9.0
 
 ### Minor Changes
