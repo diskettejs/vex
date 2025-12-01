@@ -1,5 +1,11 @@
 # @diskette/vex
 
+## 0.10.0
+
+### Minor Changes
+
+- 9924433: increase project tsconfig usage. add --debug flag
+
 ## 0.9.1
 
 ### Patch Changes
