@@ -5,6 +5,7 @@ import { ts, type SourceFile } from 'ts-morph'
 import type { FileScope, OutputPaths, PackageInfo } from './types.ts'
 
 export const cssFileFilter: RegExp = /\.css\.(js|cjs|mjs|jsx|ts|tsx)(\?used)?$/
+export const tsFileFilter: RegExp = /\.(ts|tsx|mts|cts)$/
 
 export function formatVanillaPaths(path: string): string {
   // If path already matches a .css.{ts,js,...} pattern, return as-is

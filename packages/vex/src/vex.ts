@@ -14,6 +14,7 @@ import {
   looksLikeDirectory,
   parseFileScope,
   pathFrom,
+  tsFileFilter,
 } from './misc.ts'
 import type {
   FileErrorEvent,
@@ -72,17 +73,24 @@ export class Vex {
   ): Promise<ProcessFilesResult> {
     const { onFileStart, onFileComplete, onError, failFast = false } = options
 
-    // This speeds up processing but breaks on files with function exports and also all deps get included as outputs. Need to find a workaround
-    // this.#project.resolveSourceFileDependencies()
+    this.#project.resolveSourceFileDependencies()
 
-    const files = this.#project.getSourceFiles()
+    const files: SourceFile[] = []
+    const transpiledEntries: Promise<[string, string]>[] = []
+
+    for (const sf of this.#project.getSourceFiles()) {
+      if (cssFileFilter.test(sf.getFilePath())) {
+        files.push(sf)
+        transpiledEntries.push(this.#wrapInScope(sf))
+      } else {
+        transpiledEntries.push(this.#transform(sf))
+      }
+    }
+
+    const transpiled = new Map(await Promise.all(transpiledEntries))
     const results: ProcessResult[] = []
     const errors: FileErrorEvent[] = []
     const startTime = performance.now()
-
-    const transpiled = new Map(
-      await Promise.all(files.map((file) => this.#transform(file))),
-    )
 
     for (let index = 0; index < files.length; index++) {
       const file = files[index]!
@@ -181,13 +189,10 @@ export class Vex {
     }
   }
 
-  async #transform(file: SourceFile): Promise<[string, string]> {
-    const source = file.getText()
+  async #wrapInScope(file: SourceFile): Promise<[string, string]> {
     const filePath = file.getFilePath()
-    const { code } = await esbuild.transform(source, {
-      loader: getEsBuildLoader(filePath),
-      format: 'cjs',
-    })
+    const [_, code] = await this.#transform(file)
+
     const wrapped = `
       const __vanilla_filescope__ = require("@vanilla-extract/css/fileScope");
       __vanilla_filescope__.setFileScope("${filePath}", "${this.#namespace}");
@@ -196,6 +201,17 @@ export class Vex {
     `
 
     return [filePath, wrapped]
+  }
+
+  async #transform(file: SourceFile): Promise<[string, string]> {
+    const source = file.getText()
+    const filePath = file.getFilePath()
+    const { code } = await esbuild.transform(source, {
+      loader: getEsBuildLoader(filePath),
+      format: 'cjs',
+    })
+
+    return [filePath, code]
   }
 
   #runInVm(
@@ -227,15 +243,16 @@ export class Vex {
       if (isBuiltin(moduleId)) {
         return this.#require(moduleId)
       }
+      const resolvedPath = scopedRequire.resolve(moduleId)
 
       if (
-        !cssFileFilter.test(moduleId) ||
-        moduleId.includes('@vanilla-extract')
+        (!cssFileFilter.test(moduleId) ||
+          moduleId.includes('@vanilla-extract')) &&
+        !tsFileFilter.test(resolvedPath)
       ) {
         return scopedRequire(moduleId)
       }
 
-      const resolvedPath = scopedRequire.resolve(moduleId)
       const code = transpiled.get(resolvedPath)
       invariant(code, `No transpiled code found for: ${resolvedPath}`)
 
