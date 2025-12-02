@@ -1,5 +1,15 @@
 # @diskette/vex
 
+## 0.13.0
+
+### Minor Changes
+
+- f3e1bc0: update to not throw if single file arg doesn't exist
+
+### Patch Changes
+
+- 2ca7ee9: fix for executing .ts code in vm
+
 ## 0.12.0
 
 ### Minor Changes
