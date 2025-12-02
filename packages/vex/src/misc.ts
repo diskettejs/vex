@@ -1,7 +1,7 @@
 import type { Loader } from 'esbuild'
 import fs from 'fs/promises'
 import path, { dirname, join, relative } from 'path'
-import { ts, type SourceFile } from 'ts-morph'
+import { ts, type CompilerOptions, type SourceFile } from 'ts-morph'
 import type { FileScope, OutputPaths, PackageInfo } from './types.ts'
 
 export const cssFileFilter: RegExp = /\.css\.(js|cjs|mjs|jsx|ts|tsx)(\?used)?$/
@@ -174,8 +174,8 @@ export function findTsConfig(
 
 export function buildVexCompilerOptions(
   outputDir: string,
-  compilerOptions?: ts.CompilerOptions,
-): ts.CompilerOptions {
+  compilerOptions?: CompilerOptions,
+): CompilerOptions {
   return {
     outDir: outputDir,
     paths: compilerOptions?.paths,

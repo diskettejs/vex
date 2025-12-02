@@ -30,6 +30,7 @@ export class Vex {
   #namespace: string
   #require: NodeJS.Require
   #project: Project
+  #transpiled = new WeakMap<SourceFile, string>()
 
   constructor(options: VexOptions) {
     this.#adapter = new VanillaAdapter(options.identifier ?? 'short')
@@ -74,20 +75,19 @@ export class Vex {
     const { onFileStart, onFileComplete, onError, failFast = false } = options
 
     this.#project.resolveSourceFileDependencies()
-
     const files: SourceFile[] = []
-    const transpiledEntries: Promise<[string, string]>[] = []
+    const entries: Promise<[SourceFile, string]>[] = []
 
     for (const sf of this.#project.getSourceFiles()) {
-      if (cssFileFilter.test(sf.getFilePath())) {
+      const isVanillaFile = cssFileFilter.test(sf.getFilePath())
+      if (isVanillaFile) {
         files.push(sf)
-        transpiledEntries.push(this.#wrapInScope(sf))
-      } else {
-        transpiledEntries.push(this.#transform(sf))
       }
+      entries.push(this.#transform(sf, { wrapInScope: isVanillaFile }))
     }
 
-    const transpiled = new Map(await Promise.all(transpiledEntries))
+    this.#transpiled = new WeakMap(await Promise.all(entries))
+
     const results: ProcessResult[] = []
     const errors: FileErrorEvent[] = []
     const startTime = performance.now()
@@ -102,7 +102,7 @@ export class Vex {
       const fileStartTime = performance.now()
 
       try {
-        const result = this.#process(file, transpiled)
+        const result = this.#process(file)
         const duration = performance.now() - fileStartTime
 
         await onFileComplete?.({ ...fileInfo, result, duration })
@@ -125,14 +125,10 @@ export class Vex {
     }
   }
 
-  #process(file: SourceFile, transpiled: Map<string, string>): ProcessResult {
+  #process(file: SourceFile): ProcessResult {
     this.#adapter.reset()
 
-    const filePath = file.getFilePath()
-    const code = transpiled.get(filePath)
-    invariant(code, `No transpiled code found for: ${filePath}`)
-
-    const exports = this.#runInVm(filePath, code, transpiled)
+    const exports = this.#runInVm(file)
 
     const paths = getOutputPaths(file)
 
@@ -189,74 +185,72 @@ export class Vex {
     }
   }
 
-  async #wrapInScope(file: SourceFile): Promise<[string, string]> {
+  async #transform(
+    file: SourceFile,
+    options?: { wrapInScope?: boolean },
+  ): Promise<[SourceFile, string]> {
     const filePath = file.getFilePath()
-    const [_, code] = await this.#transform(file)
+    const { code } = await esbuild.transform(file.getText(), {
+      loader: getEsBuildLoader(filePath),
+      format: 'cjs',
+    })
+    let source = code
 
-    const wrapped = `
+    if (options?.wrapInScope) {
+      source = `
+      const __vanilla_css_adapter__ = require("@vanilla-extract/css/adapter");
+      __vanilla_css_adapter__.setAdapter(__adapter__);
+
       const __vanilla_filescope__ = require("@vanilla-extract/css/fileScope");
       __vanilla_filescope__.setFileScope("${filePath}", "${this.#namespace}");
       ${code}
       __vanilla_filescope__.endFileScope();
+      __vanilla_css_adapter__.removeAdapter();
     `
+    }
 
-    return [filePath, wrapped]
+    return [file, source]
   }
 
-  async #transform(file: SourceFile): Promise<[string, string]> {
-    const source = file.getText()
+  #runInVm(file: SourceFile): Record<string, unknown> {
+    const code = this.#transpiled.get(file)
     const filePath = file.getFilePath()
-    const { code } = await esbuild.transform(source, {
-      loader: getEsBuildLoader(filePath),
-      format: 'cjs',
-    })
-
-    return [filePath, code]
-  }
-
-  #runInVm(
-    filePath: string,
-    code: string,
-    transpiled: Map<string, string>,
-  ): Record<string, unknown> {
-    const wrappedCode = `
-      require('@vanilla-extract/css/adapter').setAdapter(__adapter__);
-      ${code}
-    `
+    invariant(code, `${filePath} has not been transpiled`)
 
     const moduleExports = {}
     const moduleObj = { exports: moduleExports }
-    vm.runInNewContext(wrappedCode, {
+    vm.runInNewContext(code, {
       __adapter__: this.#adapter,
       console,
-      require: this.#createScopedRequire(filePath, transpiled),
+      require: this.#createScopedRequire(filePath),
       module: moduleObj,
     })
 
     return moduleObj.exports
   }
 
-  #createScopedRequire(filePath: string, transpiled: Map<string, string>) {
+  #createScopedRequire(filePath: string) {
     const scopedRequire = createRequire(filePath)
 
     return (moduleId: string) => {
       if (isBuiltin(moduleId)) {
         return this.#require(moduleId)
       }
-      const resolvedPath = scopedRequire.resolve(moduleId)
 
-      if (
-        (!cssFileFilter.test(moduleId) ||
-          moduleId.includes('@vanilla-extract')) &&
-        !tsFileFilter.test(resolvedPath)
-      ) {
+      const resolvedPath = scopedRequire.resolve(moduleId)
+      const shouldProcess =
+        (cssFileFilter.test(moduleId) &&
+          !moduleId.includes('@vanilla-extract')) ||
+        tsFileFilter.test(resolvedPath)
+
+      if (!shouldProcess) {
         return scopedRequire(moduleId)
       }
 
-      const code = transpiled.get(resolvedPath)
-      invariant(code, `No transpiled code found for: ${resolvedPath}`)
+      const sourceFile = this.#project.getSourceFile(resolvedPath)
+      invariant(sourceFile, `Source file not found for: ${resolvedPath}`)
 
-      return this.#runInVm(resolvedPath, code, transpiled)
+      return this.#runInVm(sourceFile)
     }
   }
 
