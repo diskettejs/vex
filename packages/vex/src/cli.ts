@@ -3,27 +3,19 @@
 import { defineCommand, runMain } from 'citty'
 import logUpdate from 'log-update'
 import { basename, relative } from 'node:path'
-import {
-  renderDebugInfo,
-  renderSuccess,
-  renderSuccessTable,
-  renderUsage,
-} from './copy.ts'
+import { renderDebugInfo, renderTable, renderUsage } from './copy.ts'
+import { writeOutput } from './misc.ts'
 import {
   buildVexCompilerOptions,
   findTsConfig,
-  pkgInfo,
-  writeOutput,
-} from './misc.ts'
-import { Vex } from './vex.ts'
-
-const pkg = await pkgInfo('../package.json').catch(() => null)
+  getPackageJson,
+} from './pkg-utils.ts'
 
 const main = defineCommand({
   meta: {
     name: 'vex',
-    version: pkg?.version ?? '0.0.0',
-    description: pkg?.description ?? '',
+    version: '__VERSION__',
+    description: '__DESC__',
   },
   args: {
     files: {
@@ -60,13 +52,6 @@ const main = defineCommand({
       alias: 'q',
       description: 'Suppress non-error output',
     },
-    'log-level': {
-      type: 'string',
-      alias: 'l',
-      description:
-        'Output verbosity: normal (table) or verbose (detailed paths)',
-      default: 'normal',
-    },
     debug: {
       type: 'boolean',
       alias: 'd',
@@ -81,56 +66,62 @@ const main = defineCommand({
     }
 
     const cwd = process.cwd()
+    const pkg = getPackageJson(cwd)
     const namespace = args.namespace ?? pkg?.name ?? basename(cwd)
 
     const { compilerOptions, tsconfigPath } =
       findTsConfig({ searchPath: args.tsconfig }) ?? {}
 
-    const vexCompilerOptions = buildVexCompilerOptions(
-      args.output,
-      compilerOptions,
-    )
+    const { Vex } = await import('./vex.ts')
 
     const vex = new Vex({
       namespace,
-      compilerOptions: vexCompilerOptions,
+      sources: args._,
+      compilerOptions: buildVexCompilerOptions(args.output, compilerOptions),
     })
-
-    args._.map((file) => vex.addSource(file))
 
     if (args.debug) {
       renderDebugInfo({
         namespace,
         args: { ...args, tsconfigPath },
-        compilerOptions: vexCompilerOptions,
+        compilerOptions: vex.compilerOptions,
         matchedFiles: vex.files,
       })
       return
     }
 
     logUpdate('Discovering files...')
-    const { results, errors, totalDuration } = await vex.processFiles({
-      onFileStart({ path, index, total }) {
-        if (!args.quiet) {
-          const displayPath = relative(cwd, path)
-          logUpdate(`[${index + 1}/${total}] Processing: ${displayPath}`)
-        }
-      },
 
-      async onFileComplete({ result }) {
-        if (!args['dry-run']) {
-          await Promise.all(
-            Object.values(result.outputs).map((output) => writeOutput(output)),
-          )
-        }
-      },
-    })
+    const { stream, results } = vex.process()
+
+    for (const event of stream) {
+      switch (event.type) {
+        case 'start':
+          if (!args.quiet) {
+            const displayPath = relative(cwd, event.file.path)
+            logUpdate(
+              `[${event.file.index + 1}/${event.file.total}] Processing: ${displayPath}`,
+            )
+          }
+          break
+
+        case 'complete':
+          if (!args['dry-run']) {
+            await Promise.all(
+              Object.values(event.result.outputs).map((output) =>
+                writeOutput(output),
+              ),
+            )
+          }
+          break
+      }
+    }
+
+    const { success, errors, totalDuration } = await results
 
     if (!args.quiet) {
       logUpdate.clear()
-      const renderResults =
-        args['log-level'] === 'verbose' ? renderSuccess : renderSuccessTable
-      renderResults(results, totalDuration, errors)
+      renderTable(success, totalDuration, errors)
     }
 
     if (errors.length > 0) {

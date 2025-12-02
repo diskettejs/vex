@@ -5,7 +5,6 @@ import { prettyBytes, prettyMs } from './misc.ts'
 import type { FileErrorEvent, ProcessResult } from './types.ts'
 
 const rel = (p: string) => path.relative(process.cwd(), p)
-
 const cmd = (s: string) => chalk.cyan(`$ ${s}`)
 const dim = chalk.grey
 
@@ -28,42 +27,6 @@ ${chalk.bold('Examples:')}
     ${cmd('vex "src/components" -o dist/css -n')}
 `
 
-export function renderSuccess(
-  results: ProcessResult[],
-  totalDuration: number,
-  errors: FileErrorEvent[] = [],
-): void {
-  const lines: string[] = []
-  const arrow = chalk.dim('→')
-
-  for (const { source, outputs } of results) {
-    lines.push(chalk.bold(rel(source)))
-    lines.push(`  ${arrow} ${chalk.magenta(rel(outputs.css.path))}`)
-    lines.push(`  ${arrow} ${chalk.yellow(rel(outputs.js.path))}`)
-    lines.push(`  ${arrow} ${chalk.blue(rel(outputs.dts.path))}`)
-    lines.push('')
-  }
-
-  const totalOutputs = results.length * 3
-  lines.push(
-    chalk.green(
-      `✓ ${results.length} source${results.length === 1 ? '' : 's'} → ${totalOutputs} files`,
-    ),
-  )
-
-  if (errors.length > 0) {
-    lines.push(
-      chalk.red(`✗ ${errors.length} error${errors.length === 1 ? '' : 's'}:`),
-    )
-    for (const { path, error } of errors) {
-      const errorMsg = error.message.split('\n')[0]
-      lines.push(`  ${chalk.dim('•')} ${rel(path)}: ${errorMsg}`)
-    }
-  }
-
-  console.log(lines.join('\n'))
-}
-
 export function renderUsage(): void {
   console.log(
     `${chalk.bold('vex')} ${chalk.dim('- vanilla-extract CSS processor')}\n`,
@@ -75,13 +38,13 @@ export function renderUsage(): void {
   console.log(chalk.dim('Run vex --help for all options.'))
 }
 
-interface OutputRow {
+export interface OutputRow {
   path: string
   type: 'css' | 'js' | 'dts'
   size: number
 }
 
-export function renderSuccessTable(
+export function renderTable(
   results: ProcessResult[],
   totalDuration: number,
   errors: FileErrorEvent[] = [],

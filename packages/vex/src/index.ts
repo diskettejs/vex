@@ -1,16 +1,17 @@
 export type {
   CustomIdentFunction,
-  FileCompleteEvent,
   FileErrorEvent,
   FileInfo,
   FileScope,
-  FileStartEvent,
   IdentifierOption,
   OutputPaths,
-  ProcessCallbacks,
-  ProcessFilesOptions,
-  ProcessFilesResult,
+  ProcessCompleteEvent,
+  ProcessDoneEvent,
+  ProcessErrorEvent,
+  ProcessEvent,
   ProcessResult,
+  ProcessStartEvent,
+  StreamOptions,
   VexOptions,
 } from './types.ts'
 

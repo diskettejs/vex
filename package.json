@@ -1,15 +1,18 @@
 {
   "name": "vex-repo",
   "private": true,
+  "type": "module",
   "scripts": {
-    "build": "pnpm --filter \"./packages/**\" build",
+    "build": "pnpm --filter \"./packages/**\" build && tsx scripts/inject-meta.ts packages/vex",
     "test": "pnpm --filter \"./packages/**\" test",
     "typecheck": "pnpm --filter \"./packages/**\" typecheck",
-    "release": "changeset version && changeset publish && git push --follow-tags"
+    "release": "changeset version && pnpm build && changeset publish && git push --follow-tags"
   },
   "devDependencies": {
     "@changesets/cli": "^2.29.7",
+    "@types/node": "24.10.1",
     "prettier": "^3.7.3",
+    "tsx": "^4.20.6",
     "typescript": "5.9.3"
   },
   "packageManager": "pnpm@10.22.0",

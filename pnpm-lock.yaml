@@ -11,9 +11,15 @@ importers:
       '@changesets/cli':
         specifier: ^2.29.7
         version: 2.29.8(@types/node@24.10.1)
+      '@types/node':
+        specifier: 24.10.1
+        version: 24.10.1
       prettier:
         specifier: ^3.7.3
         version: 3.7.3
+      tsx:
+        specifier: ^4.20.6
+        version: 4.20.6
       typescript:
         specifier: 5.9.3
         version: 5.9.3
@@ -29,9 +35,6 @@ importers:
       citty:
         specifier: ^0.1.6
         version: 0.1.6
-      esbuild:
-        specifier: ^0.27.0
-        version: 0.27.0
       log-update:
         specifier: ^7.0.2
         version: 7.0.2

@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
 import { Vex } from '../src/vex.ts'
+import type { ProcessResult } from '../src/types.ts'
 
 const fixtures = (path: string) =>
   fileURLToPath(import.meta.resolve(`./fixtures/${path}`))
@@ -12,14 +13,22 @@ function createVex() {
   })
 }
 
+async function processAll(vex: Vex): Promise<ProcessResult[]> {
+  const { stream, results } = vex.process()
+  for (const _ of stream) {
+    // drain the stream
+  }
+  return (await results).success
+}
+
 describe('Vex', () => {
-  describe('processFiles', () => {
+  describe('process', () => {
     test('processes simple style', async () => {
       const filePath = fixtures('simple/styles.css.ts')
 
       const vex = createVex()
       vex.addSource(filePath)
-      const { results } = await vex.processFiles()
+      const results = await processAll(vex)
       const [result] = results
 
       // Verify all three outputs exist
@@ -49,7 +58,7 @@ describe('Vex', () => {
 
       const vex = createVex()
       vex.addSource(filePath)
-      const { results } = await vex.processFiles()
+      const results = await processAll(vex)
       const [result] = results
 
       expect(result?.outputs.css.code).toMatchInlineSnapshot(`
@@ -73,8 +82,8 @@ describe('Vex', () => {
       `)
       expect(result?.outputs.js.code).toMatchInlineSnapshot(`
         "import './styles.css.ts.vanilla.css';
-        export var block = '_7mvs143';
-        export var container = '_7mvs142';"
+        export var container = '_7mvs142';
+        export var block = '_7mvs143';"
       `)
       expect(result?.outputs.dts.code).toMatchInlineSnapshot(`
         "export declare const container: string;
@@ -89,7 +98,7 @@ describe('Vex', () => {
       vex.addSource(fixtures('themed/themes.css.ts'))
       vex.addSource(fixtures('themed/styles.css.ts'))
 
-      const { results } = await vex.processFiles()
+      const results = await processAll(vex)
 
       const result = results.find((r) => r.outputs.js.path.includes('styles'))!
 
@@ -154,8 +163,8 @@ describe('Vex', () => {
         "import './shared.css.ts.vanilla.css';
         import './themes.css.ts.vanilla.css';
         import './styles.css.ts.vanilla.css';
-        export var button = '_1ls6w613 _178hqjy0 _1ls6w612';
         export var container = '_1ls6w611';
+        export var button = '_1ls6w613 _178hqjy0 _1ls6w612';
         export var opacity = {'1/2':'_1ls6w616','1/4':'_1ls6w617'};"
       `)
       expect(result.outputs.dts.code).toMatchInlineSnapshot(`
@@ -172,7 +181,7 @@ describe('Vex', () => {
       vex.addSource(fixtures('themed/themes.css.ts'))
       vex.addSource(fixtures('themed/styles.css.ts'))
 
-      const { results } = await vex.processFiles()
+      const results = await processAll(vex)
 
       expect(results).toHaveLength(3)
 

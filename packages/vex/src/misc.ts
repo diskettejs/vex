@@ -1,8 +1,7 @@
-import type { Loader } from 'esbuild'
 import fs from 'fs/promises'
 import path, { dirname, join, relative } from 'path'
-import { ts, type CompilerOptions, type SourceFile } from 'ts-morph'
-import type { FileScope, OutputPaths, PackageInfo } from './types.ts'
+import { type SourceFile } from 'ts-morph'
+import type { FileScope, OutputPaths } from './types.ts'
 
 export const cssFileFilter: RegExp = /\.css\.(js|cjs|mjs|jsx|ts|tsx)(\?used)?$/
 export const tsFileFilter: RegExp = /\.(ts|tsx|mts|cts)$/
@@ -23,14 +22,6 @@ export function formatVanillaPaths(path: string): string {
 export function looksLikeDirectory(str: string) {
   // Ends with separator, or has no extension
   return str.endsWith('/') || str.endsWith(path.sep) || path.extname(str) === ''
-}
-
-export async function pkgInfo(path = '../package.json'): Promise<PackageInfo> {
-  const res = await import(import.meta.resolve(path), {
-    with: { type: 'json' },
-  })
-
-  return res.default
 }
 
 export function pathFrom(from: string, to: string) {
@@ -118,75 +109,4 @@ export function prettyMs(ms: number): string {
 
   const seconds = ms / 1000
   return `${seconds.toFixed(1)}s`
-}
-
-export function getEsBuildLoader(filePath: string): Loader {
-  const ext = path.extname(filePath).slice(1)
-
-  switch (ext) {
-    case 'js':
-      return 'js'
-    case 'jsx':
-      return 'jsx'
-    case 'ts':
-      return 'ts'
-    case 'tsx':
-      return 'tsx'
-    case 'mjs':
-      return 'js'
-    case 'cjs':
-      return 'js'
-    case 'mts':
-      return 'ts'
-    case 'cts':
-      return 'ts'
-    default:
-      return 'js'
-  }
-}
-
-export function findTsConfig(
-  args: {
-    searchPath?: string
-    configName?: string
-  } = {},
-) {
-  const { searchPath = process.cwd(), configName = 'tsconfig.json' } = args
-
-  const tsconfigPath = ts.findConfigFile(
-    searchPath,
-    ts.sys.fileExists,
-    configName,
-  )
-
-  if (!tsconfigPath) {
-    return
-  }
-
-  const tsconfigFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile)
-  const { options } = ts.parseJsonConfigFileContent(
-    tsconfigFile.config,
-    ts.sys,
-    path.dirname(tsconfigPath),
-  )
-  return { compilerOptions: options, tsconfigPath }
-}
-
-export function buildVexCompilerOptions(
-  outputDir: string,
-  compilerOptions?: CompilerOptions,
-): CompilerOptions {
-  return {
-    outDir: outputDir,
-    paths: compilerOptions?.paths,
-    baseUrl: compilerOptions?.baseUrl,
-    moduleResolution: compilerOptions?.moduleResolution,
-    rootDir: compilerOptions?.rootDir,
-    rootDirs: compilerOptions?.rootDirs,
-    strict: compilerOptions?.strict,
-    target: compilerOptions?.target,
-    lib: compilerOptions?.lib,
-    jsx: compilerOptions?.jsx,
-    jsxImportSource: compilerOptions?.jsxImportSource,
-  }
 }

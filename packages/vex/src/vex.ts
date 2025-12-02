@@ -1,6 +1,5 @@
 import { transformCss } from '@vanilla-extract/css/transformCss'
 import { serializeVanillaModule } from '@vanilla-extract/integration'
-import * as esbuild from 'esbuild'
 import { createRequire, isBuiltin } from 'node:module'
 import vm from 'node:vm'
 import { Project, SourceFile, ts, type MemoryEmitResultFile } from 'ts-morph'
@@ -8,7 +7,6 @@ import { VanillaAdapter } from './adapter.ts'
 import {
   cssFileFilter,
   formatVanillaPaths,
-  getEsBuildLoader,
   getOutputPaths,
   invariant,
   looksLikeDirectory,
@@ -19,9 +17,9 @@ import {
 import type {
   FileErrorEvent,
   FileInfo,
-  ProcessFilesOptions,
-  ProcessFilesResult,
+  ProcessEvent,
   ProcessResult,
+  StreamOptions,
   VexOptions,
 } from './types.ts'
 
@@ -44,6 +42,12 @@ export class Vex {
         declaration: true,
       },
     })
+    const { sources } = options
+    if (sources) {
+      typeof sources === 'string'
+        ? this.addSource(sources)
+        : sources.map((s) => this.addSource(s))
+    }
   }
 
   get compilerOptions(): ts.CompilerOptions {
@@ -69,63 +73,91 @@ export class Vex {
     this.#project.addSourceFileAtPathIfExists(path)
   }
 
-  async processFiles(
-    options: ProcessFilesOptions = {},
-  ): Promise<ProcessFilesResult> {
-    const { onFileStart, onFileComplete, onError, failFast = false } = options
+  process(options: StreamOptions = {}): {
+    stream: Generator<ProcessEvent>
+    results: Promise<{
+      success: ProcessResult[]
+      errors: FileErrorEvent[]
+      totalDuration: number
+    }>
+  } {
+    const generator = this.#process(options)
+
+    const success: ProcessResult[] = []
+    const errors: FileErrorEvent[] = []
+    let totalDuration = 0
+
+    const results = new Promise<{
+      success: ProcessResult[]
+      errors: FileErrorEvent[]
+      totalDuration: number
+    }>((resolve) => {
+      const originalNext = generator.next.bind(generator)
+      generator.next = (...args) => {
+        const result = originalNext(...args)
+        if (!result.done) {
+          const event = result.value
+          if (event.type === 'complete') {
+            success.push(event.result)
+          } else if (event.type === 'error') {
+            errors.push({ ...event.file, error: event.error })
+          } else if (event.type === 'done') {
+            totalDuration = event.totalDuration
+            resolve({ success, errors, totalDuration })
+          }
+        }
+        return result
+      }
+    })
+
+    return { stream: generator, results }
+  }
+
+  *#process(options: StreamOptions = {}): Generator<ProcessEvent> {
+    const { failFast = false } = options
 
     this.#project.resolveSourceFileDependencies()
     const files: SourceFile[] = []
-    const entries: Promise<[SourceFile, string]>[] = []
 
     for (const sf of this.#project.getSourceFiles()) {
       const isVanillaFile = cssFileFilter.test(sf.getFilePath())
       if (isVanillaFile) {
         files.push(sf)
       }
-      entries.push(this.#transform(sf, { wrapInScope: isVanillaFile }))
+      this.#transpiled.set(
+        sf,
+        this.#transform(sf, { wrapInScope: isVanillaFile }),
+      )
     }
 
-    this.#transpiled = new WeakMap(await Promise.all(entries))
-
-    const results: ProcessResult[] = []
-    const errors: FileErrorEvent[] = []
     const startTime = performance.now()
 
     for (let index = 0; index < files.length; index++) {
       const file = files[index]!
       const path = file.getFilePath()
-
       const fileInfo: FileInfo = { path, index, total: files.length }
 
-      onFileStart?.(fileInfo)
+      yield { type: 'start', file: fileInfo }
+
       const fileStartTime = performance.now()
 
       try {
-        const result = this.#process(file)
+        const result = this.#processFile(file)
         const duration = performance.now() - fileStartTime
 
-        await onFileComplete?.({ ...fileInfo, result, duration })
-        results.push(result)
+        yield { type: 'complete', file: fileInfo, result, duration }
       } catch (err) {
         const error = err instanceof Error ? err : new Error(String(err))
-        const errorEvent: FileErrorEvent = { ...fileInfo, error }
-
-        onError?.(errorEvent)
-        errors.push(errorEvent)
+        yield { type: 'error', file: fileInfo, error }
 
         if (failFast) break
       }
     }
 
-    return {
-      results,
-      errors,
-      totalDuration: performance.now() - startTime,
-    }
+    yield { type: 'done', totalDuration: performance.now() - startTime }
   }
 
-  #process(file: SourceFile): ProcessResult {
+  #processFile(file: SourceFile): ProcessResult {
     this.#adapter.reset()
 
     const exports = this.#runInVm(file)
@@ -185,14 +217,10 @@ export class Vex {
     }
   }
 
-  async #transform(
-    file: SourceFile,
-    options?: { wrapInScope?: boolean },
-  ): Promise<[SourceFile, string]> {
+  #transform(file: SourceFile, options?: { wrapInScope?: boolean }): string {
     const filePath = file.getFilePath()
-    const { code } = await esbuild.transform(file.getText(), {
-      loader: getEsBuildLoader(filePath),
-      format: 'cjs',
+    const code = ts.transpile(file.getText(), {
+      module: ts.ModuleKind.CommonJS,
     })
     let source = code
 
@@ -209,7 +237,7 @@ export class Vex {
     `
     }
 
-    return [file, source]
+    return source
   }
 
   #runInVm(file: SourceFile): Record<string, unknown> {
@@ -224,6 +252,7 @@ export class Vex {
       console,
       require: this.#createScopedRequire(filePath),
       module: moduleObj,
+      exports: moduleExports,
     })
 
     return moduleObj.exports
