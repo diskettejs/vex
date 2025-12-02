@@ -1,5 +1,11 @@
 # @diskette/vex
 
+## 0.13.1
+
+### Patch Changes
+
+- f0c1e66: fix CLI blank version and desc
+
 ## 0.13.0
 
 ### Minor Changes
