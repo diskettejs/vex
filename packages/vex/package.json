@@ -1,6 +1,6 @@
 {
   "name": "@diskette/vex",
-  "version": "0.13.1",
+  "version": "0.14.0",
   "description": "Compiles vanilla-extract .css.ts files into CSS, JS, and TypeScript declarations",
   "keywords": [
     "vanilla-extract",

@@ -1,5 +1,12 @@
 # @diskette/vex
 
+## 0.14.0
+
+### Minor Changes
+
+- e470885: refactored compiling source files flow
+- f4afa5a: rework internals to use ts to transpile sources
+
 ## 0.13.1
 
 ### Patch Changes
