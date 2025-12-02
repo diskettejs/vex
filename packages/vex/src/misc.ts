@@ -1,6 +1,6 @@
 import type { Loader } from 'esbuild'
 import fs from 'fs/promises'
-import path, { dirname, join, relative, resolve } from 'path'
+import path, { dirname, join, relative } from 'path'
 import { ts, type SourceFile } from 'ts-morph'
 import type { FileScope, OutputPaths, PackageInfo } from './types.ts'
 
@@ -25,21 +25,12 @@ export function looksLikeDirectory(str: string) {
   return str.endsWith('/') || str.endsWith(path.sep) || path.extname(str) === ''
 }
 
-export async function pkgInfo(path = './package.json'): Promise<PackageInfo> {
-  const packageJsonExists = await fs.access(path).then(
-    () => true,
-    () => false,
-  )
+export async function pkgInfo(path = '../package.json'): Promise<PackageInfo> {
+  const res = await import(import.meta.resolve(path), {
+    with: { type: 'json' },
+  })
 
-  if (!packageJsonExists) {
-    throw new Error(`${path} does not exist`)
-  }
-
-  const resolved = resolve(path)
-  const packageJsonString = await fs.readFile(resolved, 'utf8')
-  const packageJson = JSON.parse(packageJsonString)
-
-  return { dirname: dirname(resolved), path: resolved, ...packageJson }
+  return res.default
 }
 
 export function pathFrom(from: string, to: string) {

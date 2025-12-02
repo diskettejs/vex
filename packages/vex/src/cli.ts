@@ -17,7 +17,7 @@ import {
 } from './misc.ts'
 import { Vex } from './vex.ts'
 
-const pkg = await pkgInfo().catch(() => null)
+const pkg = await pkgInfo('../package.json').catch(() => null)
 
 const main = defineCommand({
   meta: {
