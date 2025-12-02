@@ -65,7 +65,7 @@ export class Vex {
       return
     }
 
-    this.#project.addSourceFileAtPath(path)
+    this.#project.addSourceFileAtPathIfExists(path)
   }
 
   async processFiles(

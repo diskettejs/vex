@@ -108,6 +108,7 @@ const main = defineCommand({
       return
     }
 
+    logUpdate('Discovering files...')
     const { results, errors, totalDuration } = await vex.processFiles({
       onFileStart({ path, index, total }) {
         if (!args.quiet) {
