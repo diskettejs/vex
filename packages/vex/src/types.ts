@@ -27,6 +27,11 @@ export interface OutputPaths {
   css: string
 }
 
+export interface FileMapping {
+  source: string
+  output: string
+}
+
 export interface ProcessResult {
   source: string
   outputs: {

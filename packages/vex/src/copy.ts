@@ -2,7 +2,7 @@ import chalk from 'chalk'
 import path from 'node:path'
 import { ts } from 'ts-morph'
 import { prettyBytes, prettyMs } from './misc.ts'
-import type { FileErrorEvent, ProcessResult } from './types.ts'
+import type { FileErrorEvent, FileMapping, ProcessResult } from './types.ts'
 
 const rel = (p: string) => path.relative(process.cwd(), p)
 const cmd = (s: string) => chalk.cyan(`$ ${s}`)
@@ -44,7 +44,14 @@ export interface OutputRow {
   size: number
 }
 
-export type CellColor = 'magenta' | 'yellow' | 'blue' | 'cyan' | 'dim' | 'green' | 'red'
+export type CellColor =
+  | 'magenta'
+  | 'yellow'
+  | 'blue'
+  | 'cyan'
+  | 'dim'
+  | 'green'
+  | 'red'
 
 export interface TableCell {
   value: string
@@ -92,16 +99,21 @@ export function renderTableData(table: Table): void {
   }
 
   if (footer) {
-    const totalWidth = colWidths.reduce((sum, w) => sum + w, 0) + (colWidths.length - 1) * 2 + 10
+    const totalWidth =
+      colWidths.reduce((sum, w) => sum + w, 0) + (colWidths.length - 1) * 2 + 10
     lines.push(chalk.dim('─'.repeat(totalWidth)))
 
     const successText = chalk.green(`✓ ${footer.success.text}`)
-    const statsText = footer.success.stats ? chalk.dim(footer.success.stats) : ''
+    const statsText = footer.success.stats
+      ? chalk.dim(footer.success.stats)
+      : ''
     lines.push(statsText ? `${successText}  ${statsText}` : successText)
 
     if (footer.errors && footer.errors.length > 0) {
       lines.push(
-        chalk.red(`✗ ${footer.errors.length} error${footer.errors.length === 1 ? '' : 's'}:`),
+        chalk.red(
+          `✗ ${footer.errors.length} error${footer.errors.length === 1 ? '' : 's'}:`,
+        ),
       )
       for (const { label, message } of footer.errors) {
         lines.push(`  ${chalk.dim('•')} ${label}: ${chalk.red(message)}`)
@@ -191,7 +203,9 @@ export function renderSections(sections: Section[]): void {
         if (typeof item === 'string') {
           lines.push(`  ${chalk.dim('•')} ${item}`)
         } else {
-          lines.push(`${label(item.key, maxKeyLen + 2)} ${chalk.cyan(item.value)}`)
+          lines.push(
+            `${label(item.key, maxKeyLen + 2)} ${chalk.cyan(item.value)}`,
+          )
         }
       }
     }
@@ -222,7 +236,7 @@ export function renderDebugInfo(config: {
   namespace: string
   args: Record<string, any>
   compilerOptions: ts.CompilerOptions
-  matchedFiles: string[]
+  matchedFiles: FileMapping[]
 }): void {
   const configItems: SectionItem[] = [
     { key: 'Namespace', value: config.namespace },
@@ -230,10 +244,9 @@ export function renderDebugInfo(config: {
   ]
 
   if (config.args.tsconfig || config.args.tsconfigPath) {
-    configItems.push({
-      key: 'TSConfig',
-      value: config.args.tsconfig ?? config.args.tsconfigPath,
-    })
+    const confPath = config.args.tsconfig ?? config.args.tsconfigPath
+    const label = typeof confPath === 'string' ? rel(confPath) : confPath
+    configItems.push({ key: 'TSConfig', value: label })
   }
 
   configItems.push(
@@ -253,8 +266,11 @@ export function renderDebugInfo(config: {
     { title: 'Configuration', items: configItems },
     { title: 'Compiler Options', items: compilerItems },
     {
-      title: `Input Files (${config.matchedFiles.length})`,
-      items: config.matchedFiles.map((f) => rel(f)),
+      title: `Files (${config.matchedFiles.length})`,
+      items: config.matchedFiles.map((f) => ({
+        key: rel(f.source),
+        value: rel(f.output),
+      })),
     },
   ]
 

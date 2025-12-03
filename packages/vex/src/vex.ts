@@ -17,6 +17,7 @@ import {
 import type {
   FileErrorEvent,
   FileInfo,
+  FileMapping,
   ProcessEvent,
   ProcessResult,
   StreamOptions,
@@ -54,8 +55,16 @@ export class Vex {
     return this.#project.compilerOptions.get()
   }
 
-  get files(): string[] {
-    return this.#project.getSourceFiles().map((sf) => sf.getFilePath())
+  get files(): FileMapping[] {
+    const files = []
+    for (const sf of this.#project.getSourceFiles()) {
+      const source = sf.getFilePath()
+      if (cssFileFilter.test(source)) {
+        const paths = getOutputPaths(sf)
+        files.push({ source, output: paths.js })
+      }
+    }
+    return files
   }
 
   addSource(path: string): void {
