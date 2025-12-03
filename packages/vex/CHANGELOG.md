@@ -1,5 +1,12 @@
 # @diskette/vex
 
+## 0.15.0
+
+### Minor Changes
+
+- d82f788: add output paths in debug info
+- d5746e2: revert fix for output paths
+
 ## 0.14.1
 
 ### Patch Changes
