@@ -1,5 +1,11 @@
 # @diskette/vex
 
+## 0.16.0
+
+### Minor Changes
+
+- af6b265: simplify args handling
+
 ## 0.15.0
 
 ### Minor Changes
