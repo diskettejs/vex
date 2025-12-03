@@ -77,7 +77,7 @@ const main = defineCommand({
     const vex = new Vex({
       namespace,
       sources: args._,
-      compilerOptions: buildVexCompilerOptions(args.output, compilerOptions),
+      compilerOptions: buildVexCompilerOptions(args.output, compilerOptions, tsconfigPath),
     })
 
     if (args.debug) {

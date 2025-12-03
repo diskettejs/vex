@@ -53,7 +53,12 @@ export function findTsConfig(
     searchPath?: string
     configName?: string
   } = {},
-) {
+):
+  | {
+      compilerOptions: ts.CompilerOptions
+      tsconfigPath: string
+    }
+  | undefined {
   const { searchPath = process.cwd(), configName = 'tsconfig.json' } = args
 
   const tsconfigPath = ts.findConfigFile(
@@ -78,13 +83,14 @@ export function findTsConfig(
 export function buildVexCompilerOptions(
   outputDir: string,
   compilerOptions?: ts.CompilerOptions,
+  tsconfigPath?: string,
 ): ts.CompilerOptions {
   return {
     outDir: outputDir,
     paths: compilerOptions?.paths,
     baseUrl: compilerOptions?.baseUrl,
     moduleResolution: compilerOptions?.moduleResolution,
-    rootDir: compilerOptions?.rootDir,
+    rootDir: compilerOptions?.rootDir ?? (tsconfigPath ? path.dirname(tsconfigPath) : undefined),
     rootDirs: compilerOptions?.rootDirs,
     strict: compilerOptions?.strict,
     target: compilerOptions?.target,
