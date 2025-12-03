@@ -77,7 +77,7 @@ const main = defineCommand({
     const vex = new Vex({
       namespace,
       sources: args._,
-      compilerOptions: buildVexCompilerOptions(args.output, compilerOptions, tsconfigPath),
+      compilerOptions: buildVexCompilerOptions(compilerOptions),
     })
 
     if (args.debug) {
@@ -90,7 +90,9 @@ const main = defineCommand({
       return
     }
 
-    logUpdate('Discovering files...')
+    if (!args.quiet) {
+      logUpdate('Discovering files...')
+    }
 
     const { stream, results } = vex.process()
 

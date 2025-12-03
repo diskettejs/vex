@@ -1,15 +1,15 @@
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
-import { Vex } from '../src/vex.ts'
 import type { ProcessResult } from '../src/types.ts'
+import { Vex } from '../src/vex.ts'
 
+const fixturesDir = fileURLToPath(import.meta.resolve('./fixtures'))
 const fixtures = (path: string) =>
   fileURLToPath(import.meta.resolve(`./fixtures/${path}`))
 
 function createVex() {
   return new Vex({
     namespace: '@diskette/nex',
-    compilerOptions: { outDir: 'dist' },
   })
 }
 

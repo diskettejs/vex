@@ -81,16 +81,13 @@ export function findTsConfig(
 }
 
 export function buildVexCompilerOptions(
-  outputDir: string,
   compilerOptions?: ts.CompilerOptions,
-  tsconfigPath?: string,
 ): ts.CompilerOptions {
   return {
-    outDir: outputDir,
     paths: compilerOptions?.paths,
     baseUrl: compilerOptions?.baseUrl,
     moduleResolution: compilerOptions?.moduleResolution,
-    rootDir: compilerOptions?.rootDir ?? (tsconfigPath ? path.dirname(tsconfigPath) : undefined),
+    rootDir: compilerOptions?.rootDir,
     rootDirs: compilerOptions?.rootDirs,
     strict: compilerOptions?.strict,
     target: compilerOptions?.target,

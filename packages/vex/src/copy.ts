@@ -44,16 +44,90 @@ export interface OutputRow {
   size: number
 }
 
+export type CellColor = 'magenta' | 'yellow' | 'blue' | 'cyan' | 'dim' | 'green' | 'red'
+
+export interface TableCell {
+  value: string
+  color?: CellColor
+}
+
+export interface Table {
+  headers: string[]
+  rows: TableCell[][]
+  footer?: {
+    success: { text: string; stats?: string }
+    errors?: { label: string; message: string }[]
+  }
+}
+
+const colorFns: Record<CellColor, (s: string) => string> = {
+  magenta: chalk.magenta,
+  yellow: chalk.yellow,
+  blue: chalk.blue,
+  cyan: chalk.cyan,
+  dim: chalk.dim,
+  green: chalk.green,
+  red: chalk.red,
+}
+
+export function renderTableData(table: Table): void {
+  const { headers, rows, footer } = table
+  const lines: string[] = []
+
+  const colWidths = headers.map((h, i) =>
+    Math.max(h.length, ...rows.map((r) => r[i]?.value.length ?? 0)),
+  )
+
+  const headerLine = headers
+    .map((h, i) => chalk.bold(h.padEnd(colWidths[i] ?? 0)))
+    .join('  ')
+  lines.push(headerLine)
+
+  for (const row of rows) {
+    const cells = row.map((cell, i) => {
+      const padded = cell.value.padEnd(colWidths[i] ?? 0)
+      return cell.color ? colorFns[cell.color](padded) : padded
+    })
+    lines.push(cells.join('  '))
+  }
+
+  if (footer) {
+    const totalWidth = colWidths.reduce((sum, w) => sum + w, 0) + (colWidths.length - 1) * 2 + 10
+    lines.push(chalk.dim('─'.repeat(totalWidth)))
+
+    const successText = chalk.green(`✓ ${footer.success.text}`)
+    const statsText = footer.success.stats ? chalk.dim(footer.success.stats) : ''
+    lines.push(statsText ? `${successText}  ${statsText}` : successText)
+
+    if (footer.errors && footer.errors.length > 0) {
+      lines.push(
+        chalk.red(`✗ ${footer.errors.length} error${footer.errors.length === 1 ? '' : 's'}:`),
+      )
+      for (const { label, message } of footer.errors) {
+        lines.push(`  ${chalk.dim('•')} ${label}: ${chalk.red(message)}`)
+      }
+    }
+  }
+
+  console.log(lines.join('\n'))
+}
+
+const typeColors: Record<OutputRow['type'], CellColor> = {
+  css: 'magenta',
+  js: 'yellow',
+  dts: 'blue',
+}
+
 export function renderTable(
   results: ProcessResult[],
   totalDuration: number,
   errors: FileErrorEvent[] = [],
 ): void {
-  const rows: OutputRow[] = []
+  const outputRows: OutputRow[] = []
 
   for (const { outputs } of results) {
     for (const [type, output] of Object.entries(outputs)) {
-      rows.push({
+      outputRows.push({
         path: rel(output.path),
         type: type as OutputRow['type'],
         size: Buffer.byteLength(output.code, 'utf-8'),
@@ -61,50 +135,70 @@ export function renderTable(
     }
   }
 
-  const maxPathLen = Math.max(...rows.map((r) => r.path.length), 6)
-  const maxTypeLen = 4
+  const totalSize = outputRows.reduce((sum, r) => sum + r.size, 0)
 
-  const lines: string[] = []
-
-  const header = `${chalk.bold('Output'.padEnd(maxPathLen))}  ${chalk.bold('Type'.padEnd(maxTypeLen))}  ${chalk.bold('Size')}`
-  lines.push(header)
-
-  for (const row of rows) {
-    const typeColor =
-      row.type === 'css'
-        ? chalk.magenta
-        : row.type === 'js'
-          ? chalk.yellow
-          : chalk.blue
-    const pathStr = row.path.padEnd(maxPathLen)
-    const typeStr = typeColor(row.type.padEnd(maxTypeLen))
-    const sizeStr = chalk.dim(prettyBytes(row.size))
-    lines.push(`${pathStr}  ${typeStr}  ${sizeStr}`)
+  const table: Table = {
+    headers: ['Output', 'Type', 'Size'],
+    rows: outputRows.map((row) => [
+      { value: row.path },
+      { value: row.type, color: typeColors[row.type] },
+      { value: prettyBytes(row.size), color: 'dim' },
+    ]),
+    footer: {
+      success: {
+        text: `${outputRows.length} files`,
+        stats: `${prettyBytes(totalSize)}  ${prettyMs(totalDuration)}`,
+      },
+      errors: errors.map(({ path: p, error }) => ({
+        label: rel(p),
+        message: error.message,
+      })),
+    },
   }
 
-  const totalSize = rows.reduce((sum, r) => sum + r.size, 0)
-  lines.push(chalk.dim('─'.repeat(maxPathLen + maxTypeLen + 16)))
+  renderTableData(table)
+}
 
-  const successLine =
-    chalk.green(`✓ ${rows.length} files`.padEnd(maxPathLen + maxTypeLen + 4)) +
-    chalk.dim(`${prettyBytes(totalSize)}  ${prettyMs(totalDuration)}`)
-  lines.push(successLine)
+const label = (s: string, width: number) => chalk.dim(s.padEnd(width))
 
-  if (errors.length > 0) {
-    lines.push(
-      chalk.red(`✗ ${errors.length} error${errors.length === 1 ? '' : 's'}:`),
-    )
-    for (const { path, error } of errors) {
-      lines.push(
-        `  ${chalk.dim('•')} ${rel(path)}: ${chalk.red(error.message)}`,
-      )
+export type SectionItem = { key: string; value: string } | string
+
+export interface Section {
+  title: string
+  items: SectionItem[]
+}
+
+export function renderSections(sections: Section[]): void {
+  const lines: string[] = []
+
+  const maxKeyLen = Math.max(
+    ...sections.flatMap((s) =>
+      s.items.map((i) => (typeof i === 'string' ? 0 : i.key.length)),
+    ),
+    10,
+  )
+
+  for (const section of sections) {
+    if (lines.length > 0) lines.push('')
+
+    lines.push(chalk.bold(section.title))
+    lines.push(chalk.dim('─'.repeat(50)))
+
+    if (section.items.length === 0) {
+      lines.push(chalk.yellow('  (none)'))
+    } else {
+      for (const item of section.items) {
+        if (typeof item === 'string') {
+          lines.push(`  ${chalk.dim('•')} ${item}`)
+        } else {
+          lines.push(`${label(item.key, maxKeyLen + 2)} ${chalk.cyan(item.value)}`)
+        }
+      }
     }
   }
 
   console.log(lines.join('\n'))
 }
-
-const label = (s: string) => chalk.dim(s.padEnd(20))
 const enumMapping: Record<string, Record<number, string>> = {
   target: ts.ScriptTarget,
   module: ts.ModuleKind,
@@ -114,63 +208,55 @@ const enumMapping: Record<string, Record<number, string>> = {
   moduleDetection: ts.ModuleDetectionKind,
 }
 
+function formatCompilerOptionValue(key: string, value: unknown): string {
+  if (typeof value === 'number' && enumMapping[key]) {
+    return enumMapping[key][value] ?? String(value)
+  }
+  if (typeof value === 'object') {
+    return JSON.stringify(value)
+  }
+  return String(value)
+}
+
 export function renderDebugInfo(config: {
   namespace: string
   args: Record<string, any>
   compilerOptions: ts.CompilerOptions
   matchedFiles: string[]
 }): void {
-  const lines: string[] = []
+  const configItems: SectionItem[] = [
+    { key: 'Namespace', value: config.namespace },
+    { key: 'Output Dir', value: config.args.output },
+  ]
 
-  lines.push(chalk.bold('Configuration'))
-  lines.push(chalk.dim('─'.repeat(50)))
-  lines.push(`${label('Namespace')} ${chalk.cyan(config.namespace)}`)
-  lines.push(`${label('Output Dir')} ${chalk.cyan(config.args.output)}`)
   if (config.args.tsconfig || config.args.tsconfigPath) {
-    lines.push(
-      `${label('TSConfig')} ${chalk.cyan(config.args.tsconfig ?? config.args.tsconfigPath)}`,
-    )
+    configItems.push({
+      key: 'TSConfig',
+      value: config.args.tsconfig ?? config.args.tsconfigPath,
+    })
   }
-  lines.push(
-    `${label('Dry Run')} ${chalk.cyan(config.args['dry-run'] ?? false)}`,
+
+  configItems.push(
+    { key: 'Dry Run', value: String(config.args['dry-run'] ?? false) },
+    { key: 'Quiet', value: String(config.args.quiet ?? false) },
+    { key: 'Log Level', value: config.args['log-level'] },
   )
-  lines.push(`${label('Quiet')} ${chalk.cyan(config.args.quiet ?? false)}`)
-  lines.push(`${label('Log Level')} ${chalk.cyan(config.args['log-level'])}`)
-  lines.push('')
 
-  lines.push(chalk.bold('Compiler Options'))
-  lines.push(chalk.dim('─'.repeat(50)))
+  const compilerItems: SectionItem[] = Object.entries(config.compilerOptions)
+    .filter(([, value]) => value !== undefined)
+    .map(([key, value]) => ({
+      key,
+      value: formatCompilerOptionValue(key, value),
+    }))
 
-  const opts = config.compilerOptions
+  const sections: Section[] = [
+    { title: 'Configuration', items: configItems },
+    { title: 'Compiler Options', items: compilerItems },
+    {
+      title: `Input Files (${config.matchedFiles.length})`,
+      items: config.matchedFiles.map((f) => rel(f)),
+    },
+  ]
 
-  for (const [key, value] of Object.entries(opts)) {
-    if (value === undefined) continue
-
-    let formattedValue: string
-    if (typeof value === 'number' && enumMapping[key]) {
-      formattedValue = enumMapping[key][value] ?? String(value)
-    } else if (typeof value === 'object') {
-      formattedValue = JSON.stringify(value)
-    } else {
-      formattedValue = String(value)
-    }
-
-    lines.push(`${label(key)} ${chalk.cyan(formattedValue)}`)
-  }
-
-  lines.push('')
-
-  const fileCount = config.matchedFiles.length
-  lines.push(chalk.bold(`Input Files (${fileCount})`))
-  lines.push(chalk.dim('─'.repeat(50)))
-
-  if (fileCount === 0) {
-    lines.push(chalk.yellow('  No files matched'))
-  } else {
-    for (const file of config.matchedFiles) {
-      lines.push(`  ${chalk.dim('•')} ${rel(file)}`)
-    }
-  }
-
-  console.log(lines.join('\n'))
+  renderSections(sections)
 }
