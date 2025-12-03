@@ -1,5 +1,11 @@
 # @diskette/vex
 
+## 0.14.1
+
+### Patch Changes
+
+- fa29634: fix for outputs getting flattent
+
 ## 0.14.0
 
 ### Minor Changes
