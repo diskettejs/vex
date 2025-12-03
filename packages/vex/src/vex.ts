@@ -39,7 +39,6 @@ export class Vex {
     this.#project = new Project({
       compilerOptions: options.compilerOptions,
       defaultCompilerOptions: {
-        outDir: 'dist',
         declaration: true,
       },
     })
@@ -68,12 +67,6 @@ export class Vex {
   }
 
   addSource(path: string): void {
-    const isGlob = /[*?{}[\]]/.test(path) || path.includes('**')
-    if (isGlob) {
-      this.#project.addSourceFilesAtPaths(path)
-      return
-    }
-
     if (looksLikeDirectory(path)) {
       this.#project.addSourceFilesAtPaths(formatVanillaPaths(path))
       return

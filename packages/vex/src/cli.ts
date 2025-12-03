@@ -2,9 +2,9 @@
 
 import { defineCommand, runMain } from 'citty'
 import logUpdate from 'log-update'
-import { basename, relative } from 'node:path'
+import { basename, relative, resolve } from 'node:path'
 import { renderDebugInfo, renderTable, renderUsage } from './copy.ts'
-import { writeOutput } from './misc.ts'
+import { looksLikeDirectory, writeOutput } from './misc.ts'
 import {
   buildVexCompilerOptions,
   findTsConfig,
@@ -18,11 +18,11 @@ const main = defineCommand({
     description: '__DESC__',
   },
   args: {
-    files: {
+    source: {
       type: 'positional',
-      description: 'Directory containing .css.ts files to process',
+      description: 'Source directory containing .css.ts files',
       valueHint: 'src',
-      default: '**/**.css.ts',
+      required: true,
     },
     output: {
       type: 'string',
@@ -33,12 +33,12 @@ const main = defineCommand({
     },
     tsconfig: {
       type: 'string',
+      alias: 'p',
       description: 'Path to tsconfig.json for TypeScript resolution',
       valueHint: 'tsconfig.build.json',
     },
     namespace: {
       type: 'string',
-      alias: 'p',
       description:
         'Namespace for CSS scoping (defaults to package.json name or directory)',
     },
@@ -59,10 +59,19 @@ const main = defineCommand({
     },
   },
 
-  async run({ args }) {
-    if (args._.length === 0 && !args.debug) {
+  async run({ args, rawArgs }) {
+    const source = rawArgs[0]
+    if (!source && !args.debug) {
       renderUsage()
       return
+    }
+
+    if (source && !looksLikeDirectory(source)) {
+      console.error(
+        `Error: Expected a directory, got file path "${source}"\n` +
+          `Usage: vex <directory> [-o output]`,
+      )
+      process.exit(1)
     }
 
     const cwd = process.cwd()
@@ -76,8 +85,12 @@ const main = defineCommand({
 
     const vex = new Vex({
       namespace,
-      sources: args._,
-      compilerOptions: buildVexCompilerOptions(compilerOptions),
+      sources: source,
+      compilerOptions: buildVexCompilerOptions({
+        ...compilerOptions,
+        rootDir: source ? resolve(cwd, source) : undefined,
+        outDir: resolve(cwd, args.output),
+      }),
     })
 
     if (args.debug) {

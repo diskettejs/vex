@@ -87,12 +87,13 @@ export function buildVexCompilerOptions(
     paths: compilerOptions?.paths,
     baseUrl: compilerOptions?.baseUrl,
     moduleResolution: compilerOptions?.moduleResolution,
-    rootDir: compilerOptions?.rootDir,
-    rootDirs: compilerOptions?.rootDirs,
     strict: compilerOptions?.strict,
     target: compilerOptions?.target,
     lib: compilerOptions?.lib,
     jsx: compilerOptions?.jsx,
     jsxImportSource: compilerOptions?.jsxImportSource,
+    // CLI-controlled: these determine output structure
+    rootDir: compilerOptions?.rootDir,
+    outDir: compilerOptions?.outDir,
   }
 }
