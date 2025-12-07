@@ -14,11 +14,13 @@ function createVex() {
 }
 
 async function processAll(vex: Vex): Promise<ProcessResult[]> {
-  const { stream, results } = vex.process()
-  for (const _ of stream) {
-    // drain the stream
+  const results: ProcessResult[] = []
+  for await (const event of vex.process()) {
+    if (event.type === 'complete') {
+      results.push(event.result)
+    }
   }
-  return (await results).success
+  return results
 }
 
 describe('Vex', () => {

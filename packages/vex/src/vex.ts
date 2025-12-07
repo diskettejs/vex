@@ -1,3 +1,4 @@
+import { Repeater } from '@repeaterjs/repeater'
 import { transformCss } from '@vanilla-extract/css/transformCss'
 import { serializeVanillaModule } from '@vanilla-extract/integration'
 import { createRequire, isBuiltin } from 'node:module'
@@ -15,12 +16,10 @@ import {
   tsFileFilter,
 } from './misc.ts'
 import type {
-  FileErrorEvent,
   FileInfo,
   FileMapping,
   ProcessEvent,
   ProcessResult,
-  StreamOptions,
   VexOptions,
 } from './types.ts'
 
@@ -75,88 +74,56 @@ export class Vex {
     this.#project.addSourceFileAtPathIfExists(path)
   }
 
-  process(options: StreamOptions = {}): {
-    stream: Generator<ProcessEvent>
-    results: Promise<{
-      success: ProcessResult[]
-      errors: FileErrorEvent[]
-      totalDuration: number
-    }>
-  } {
-    const generator = this.#process(options)
+  process(): Repeater<ProcessEvent> {
+    return new Repeater(async (push, stop) => {
+      this.#project.resolveSourceFileDependencies()
+      const sourceFiles = this.#project.getSourceFiles()
+      const files: SourceFile[] = []
 
-    const success: ProcessResult[] = []
-    const errors: FileErrorEvent[] = []
-    let totalDuration = 0
+      for (let index = 0; index < sourceFiles.length; index++) {
+        const sf = sourceFiles[index]!
+        const path = sf.getFilePath()
 
-    const results = new Promise<{
-      success: ProcessResult[]
-      errors: FileErrorEvent[]
-      totalDuration: number
-    }>((resolve) => {
-      const originalNext = generator.next.bind(generator)
-      generator.next = (...args) => {
-        const result = originalNext(...args)
-        if (!result.done) {
-          const event = result.value
-          if (event.type === 'complete') {
-            success.push(event.result)
-          } else if (event.type === 'error') {
-            errors.push({ ...event.file, error: event.error })
-          } else if (event.type === 'done') {
-            totalDuration = event.totalDuration
-            resolve({ success, errors, totalDuration })
-          }
+        await push({
+          type: 'transform',
+          file: { path, index, total: sourceFiles.length },
+        })
+
+        const isVanillaFile = cssFileFilter.test(path)
+        if (isVanillaFile) {
+          files.push(sf)
         }
-        return result
+        this.#transpiled.set(
+          sf,
+          this.#transform(sf, { wrapInScope: isVanillaFile }),
+        )
       }
+
+      const startTime = performance.now()
+
+      for (let index = 0; index < files.length; index++) {
+        const file = files[index]!
+        const path = file.getFilePath()
+        const fileInfo: FileInfo = { path, index, total: files.length }
+
+        await push({ type: 'start', file: fileInfo })
+
+        const fileStartTime = performance.now()
+
+        try {
+          const result = this.#processFile(file)
+          const duration = performance.now() - fileStartTime
+
+          await push({ type: 'complete', file: fileInfo, result, duration })
+        } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err))
+          await push({ type: 'error', file: fileInfo, error })
+        }
+      }
+
+      await push({ type: 'done', totalDuration: performance.now() - startTime })
+      stop()
     })
-
-    return { stream: generator, results }
-  }
-
-  *#process(options: StreamOptions = {}): Generator<ProcessEvent> {
-    const { failFast = false } = options
-
-    this.#project.resolveSourceFileDependencies()
-    const files: SourceFile[] = []
-
-    for (const sf of this.#project.getSourceFiles()) {
-      const isVanillaFile = cssFileFilter.test(sf.getFilePath())
-      if (isVanillaFile) {
-        files.push(sf)
-      }
-      this.#transpiled.set(
-        sf,
-        this.#transform(sf, { wrapInScope: isVanillaFile }),
-      )
-    }
-
-    const startTime = performance.now()
-
-    for (let index = 0; index < files.length; index++) {
-      const file = files[index]!
-      const path = file.getFilePath()
-      const fileInfo: FileInfo = { path, index, total: files.length }
-
-      yield { type: 'start', file: fileInfo }
-
-      const fileStartTime = performance.now()
-
-      try {
-        const result = this.#processFile(file)
-        const duration = performance.now() - fileStartTime
-
-        yield { type: 'complete', file: fileInfo, result, duration }
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error(String(err))
-        yield { type: 'error', file: fileInfo, error }
-
-        if (failFast) break
-      }
-    }
-
-    yield { type: 'done', totalDuration: performance.now() - startTime }
   }
 
   #processFile(file: SourceFile): ProcessResult {

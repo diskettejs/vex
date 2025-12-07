@@ -10,6 +10,7 @@ import {
   findTsConfig,
   getPackageJson,
 } from './pkg-utils.ts'
+import type { FileErrorEvent, ProcessResult } from './types.ts'
 
 const main = defineCommand({
   meta: {
@@ -107,10 +108,21 @@ const main = defineCommand({
       logUpdate('Discovering files...')
     }
 
-    const { stream, results } = vex.process()
+    const success: ProcessResult[] = []
+    const errors: FileErrorEvent[] = []
+    let totalDuration = 0
 
-    for (const event of stream) {
+    for await (const event of vex.process()) {
       switch (event.type) {
+        case 'transform':
+          if (!args.quiet) {
+            const displayPath = relative(cwd, event.file.path)
+            logUpdate(
+              `[${event.file.index + 1}/${event.file.total}] Transforming: ${displayPath}`,
+            )
+          }
+          break
+
         case 'start':
           if (!args.quiet) {
             const displayPath = relative(cwd, event.file.path)
@@ -121,6 +133,7 @@ const main = defineCommand({
           break
 
         case 'complete':
+          success.push(event.result)
           if (!args['dry-run']) {
             await Promise.all(
               Object.values(event.result.outputs).map((output) =>
@@ -129,10 +142,16 @@ const main = defineCommand({
             )
           }
           break
+
+        case 'error':
+          errors.push({ ...event.file, error: event.error })
+          break
+
+        case 'done':
+          totalDuration = event.totalDuration
+          break
       }
     }
-
-    const { success, errors, totalDuration } = await results
 
     if (!args.quiet) {
       logUpdate.clear()

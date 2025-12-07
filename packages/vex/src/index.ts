@@ -11,7 +11,8 @@ export type {
   ProcessEvent,
   ProcessResult,
   ProcessStartEvent,
-  StreamOptions,
+  ProcessTransformEvent,
+  TransformInfo,
   VexOptions,
 } from './types.ts'
 

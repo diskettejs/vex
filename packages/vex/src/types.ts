@@ -83,15 +83,23 @@ export interface ProcessDoneEvent {
   totalDuration: number
 }
 
+export interface TransformInfo {
+  path: string
+  index: number
+  total: number
+}
+
+export interface ProcessTransformEvent {
+  type: 'transform'
+  file: TransformInfo
+}
+
 export type ProcessEvent =
+  | ProcessTransformEvent
   | ProcessStartEvent
   | ProcessCompleteEvent
   | ProcessErrorEvent
   | ProcessDoneEvent
-
-export interface StreamOptions {
-  failFast?: boolean
-}
 
 export interface PackageInfo {
   name: string
