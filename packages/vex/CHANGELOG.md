@@ -1,5 +1,11 @@
 # @diskette/vex
 
+## 0.17.0
+
+### Minor Changes
+
+- 51bd570: refactor implementation to use Repeater
+
 ## 0.16.0
 
 ### Minor Changes
