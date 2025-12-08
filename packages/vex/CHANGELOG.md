@@ -1,5 +1,11 @@
 # @diskette/vex
 
+## 0.18.0
+
+### Minor Changes
+
+- f32011a: initial watch mode implementation
+
 ## 0.17.0
 
 ### Minor Changes
