@@ -1,9 +1,8 @@
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
-import type { ProcessResult } from '../src/types.ts'
+import type { CompileResult } from '../src/types.ts'
 import { Vex } from '../src/vex.ts'
 
-const fixturesDir = fileURLToPath(import.meta.resolve('./fixtures'))
 const fixtures = (path: string) =>
   fileURLToPath(import.meta.resolve(`./fixtures/${path}`))
 
@@ -13,9 +12,9 @@ function createVex() {
   })
 }
 
-async function processAll(vex: Vex): Promise<ProcessResult[]> {
-  const results: ProcessResult[] = []
-  for await (const event of vex.process()) {
+async function buildAll(vex: Vex): Promise<CompileResult[]> {
+  const results: CompileResult[] = []
+  for await (const event of vex.build()) {
     if (event.type === 'complete') {
       results.push(event.result)
     }
@@ -30,7 +29,7 @@ describe('Vex', () => {
 
       const vex = createVex()
       vex.addSource(filePath)
-      const results = await processAll(vex)
+      const results = await buildAll(vex)
       const [result] = results
 
       // Verify all three outputs exist
@@ -60,7 +59,7 @@ describe('Vex', () => {
 
       const vex = createVex()
       vex.addSource(filePath)
-      const results = await processAll(vex)
+      const results = await buildAll(vex)
       const [result] = results
 
       expect(result?.outputs.css.code).toMatchInlineSnapshot(`
@@ -100,7 +99,7 @@ describe('Vex', () => {
       vex.addSource(fixtures('themed/themes.css.ts'))
       vex.addSource(fixtures('themed/styles.css.ts'))
 
-      const results = await processAll(vex)
+      const results = await buildAll(vex)
 
       const result = results.find((r) => r.outputs.js.path.includes('styles'))!
 
@@ -183,7 +182,7 @@ describe('Vex', () => {
       vex.addSource(fixtures('themed/themes.css.ts'))
       vex.addSource(fixtures('themed/styles.css.ts'))
 
-      const results = await processAll(vex)
+      const results = await buildAll(vex)
 
       expect(results).toHaveLength(3)
 

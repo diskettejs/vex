@@ -32,7 +32,7 @@ export interface FileMapping {
   output: string
 }
 
-export interface ProcessResult {
+export interface CompileResult {
   source: string
   outputs: {
     js: {
@@ -60,46 +60,41 @@ export interface FileErrorEvent extends FileInfo {
   error: Error
 }
 
-export interface ProcessStartEvent {
+export interface BuildFileStartEvent {
   type: 'start'
   file: FileInfo
 }
 
-export interface ProcessCompleteEvent {
+export interface BuildFileCompleteEvent {
   type: 'complete'
   file: FileInfo
-  result: ProcessResult
+  result: CompileResult
   duration: number
 }
 
-export interface ProcessErrorEvent {
-  type: 'error'
-  file: FileInfo
-  error: Error
-}
-
-export interface ProcessDoneEvent {
+export interface BuildCompleteEvent {
   type: 'done'
+  results: CompileResult[]
+  errors: FileErrorEvent[]
   totalDuration: number
 }
 
-export interface TransformInfo {
+export interface TranspileInfo {
   path: string
   index: number
   total: number
 }
 
-export interface ProcessTransformEvent {
-  type: 'transform'
-  file: TransformInfo
+export interface BuildTranspileEvent {
+  type: 'transpile'
+  file: TranspileInfo
 }
 
-export type ProcessEvent =
-  | ProcessTransformEvent
-  | ProcessStartEvent
-  | ProcessCompleteEvent
-  | ProcessErrorEvent
-  | ProcessDoneEvent
+export type BuildEvent =
+  | BuildTranspileEvent
+  | BuildFileStartEvent
+  | BuildFileCompleteEvent
+  | BuildCompleteEvent
 
 export interface PackageInfo {
   name: string

@@ -1,7 +1,7 @@
 import fs from 'fs/promises'
 import path, { dirname, join, relative } from 'path'
 import { type SourceFile } from 'ts-morph'
-import type { FileScope, OutputPaths } from './types.ts'
+import type { CompileResult, FileScope, OutputPaths } from './types.ts'
 
 export const cssFileFilter: RegExp = /\.css\.(js|cjs|mjs|jsx|ts|tsx)(\?used)?$/
 export const tsFileFilter: RegExp = /\.(ts|tsx|mts|cts)$/
@@ -109,4 +109,8 @@ export function prettyMs(ms: number): string {
 
   const seconds = ms / 1000
   return `${seconds.toFixed(1)}s`
+}
+
+export async function writeResults(result: CompileResult): Promise<void> {
+  await Promise.all(Object.values(result.outputs).map(writeOutput))
 }

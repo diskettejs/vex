@@ -16,10 +16,11 @@ import {
   tsFileFilter,
 } from './misc.ts'
 import type {
+  BuildEvent,
+  CompileResult,
+  FileErrorEvent,
   FileInfo,
   FileMapping,
-  ProcessEvent,
-  ProcessResult,
   VexOptions,
 } from './types.ts'
 
@@ -28,7 +29,7 @@ export class Vex {
   #namespace: string
   #require: NodeJS.Require
   #project: Project
-  #transpiled = new WeakMap<SourceFile, string>()
+  #transpiled = new Map<string, string>()
 
   constructor(options: VexOptions) {
     this.#adapter = new VanillaAdapter(options.identifier ?? 'short')
@@ -74,7 +75,7 @@ export class Vex {
     this.#project.addSourceFileAtPathIfExists(path)
   }
 
-  process(): Repeater<ProcessEvent> {
+  build(): Repeater<BuildEvent> {
     return new Repeater(async (push, stop) => {
       this.#project.resolveSourceFileDependencies()
       const sourceFiles = this.#project.getSourceFiles()
@@ -85,7 +86,7 @@ export class Vex {
         const path = sf.getFilePath()
 
         await push({
-          type: 'transform',
+          type: 'transpile',
           file: { path, index, total: sourceFiles.length },
         })
 
@@ -94,12 +95,14 @@ export class Vex {
           files.push(sf)
         }
         this.#transpiled.set(
-          sf,
-          this.#transform(sf, { wrapInScope: isVanillaFile }),
+          path,
+          this.#transpile(sf, { wrapInScope: isVanillaFile }),
         )
       }
 
       const startTime = performance.now()
+      const results: CompileResult[] = []
+      const errors: FileErrorEvent[] = []
 
       for (let index = 0; index < files.length; index++) {
         const file = files[index]!
@@ -111,25 +114,72 @@ export class Vex {
         const fileStartTime = performance.now()
 
         try {
-          const result = this.#processFile(file)
+          const result = this.#compileSource(file)
           const duration = performance.now() - fileStartTime
 
+          results.push(result)
           await push({ type: 'complete', file: fileInfo, result, duration })
         } catch (err) {
           const error = err instanceof Error ? err : new Error(String(err))
-          await push({ type: 'error', file: fileInfo, error })
+          errors.push({ ...fileInfo, error })
         }
       }
 
-      await push({ type: 'done', totalDuration: performance.now() - startTime })
+      await push({
+        type: 'done',
+        results,
+        errors,
+        totalDuration: performance.now() - startTime,
+      })
       stop()
     })
   }
 
-  #processFile(file: SourceFile): ProcessResult {
+  /**
+   * Invalidates a changed file and returns affected `.css.ts` files.
+   * - Refreshes the file from disk and re-transpiles it.
+   * - If the file is a `.css.ts` file, returns it directly.
+   * - Otherwise, returns `.css.ts` files that directly import this file.
+   */
+  invalidate(changedPath: string): string[] {
+    const file = this.#project.getSourceFile(changedPath)
+    if (!file) return []
+
+    file.refreshFromFileSystemSync()
+
+    // Re-transpile the changed file
+    const isCssFile = cssFileFilter.test(changedPath)
+    this.#transpiled.set(
+      changedPath,
+      this.#transpile(file, { wrapInScope: isCssFile }),
+    )
+    if (isCssFile) {
+      return [changedPath]
+    }
+
+    const files: string[] = []
+    // Find .css.ts files that directly import this file
+    for (const sf of file.getReferencingSourceFiles()) {
+      const path = sf.getFilePath()
+      if (cssFileFilter.test(path)) {
+        files.push(path)
+      }
+    }
+
+    return files
+  }
+
+  compile(filePath: string): CompileResult {
+    const file = this.#project.getSourceFile(filePath)
+    invariant(file, `Source file not found: ${filePath}`)
+
+    return this.#compileSource(file)
+  }
+
+  #compileSource(file: SourceFile): CompileResult {
     this.#adapter.reset()
 
-    const exports = this.#runInVm(file)
+    const exports = this.#execute(file)
 
     const paths = getOutputPaths(file)
 
@@ -173,7 +223,7 @@ export class Vex {
       unusedCompositionRegex,
     )
 
-    const dts = this.#getFileEmit(file)
+    const dts = this.#emitDts(file)
     const sourcePath = file.getFilePath()
 
     return {
@@ -186,7 +236,7 @@ export class Vex {
     }
   }
 
-  #transform(file: SourceFile, options?: { wrapInScope?: boolean }): string {
+  #transpile(file: SourceFile, options?: { wrapInScope?: boolean }): string {
     const filePath = file.getFilePath()
     const code = ts.transpile(file.getText(), {
       module: ts.ModuleKind.CommonJS,
@@ -209,9 +259,9 @@ export class Vex {
     return source
   }
 
-  #runInVm(file: SourceFile): Record<string, unknown> {
-    const code = this.#transpiled.get(file)
+  #execute(file: SourceFile): Record<string, unknown> {
     const filePath = file.getFilePath()
+    const code = this.#transpiled.get(filePath)
     invariant(code, `${filePath} has not been transpiled`)
 
     const moduleExports = {}
@@ -219,7 +269,7 @@ export class Vex {
     vm.runInNewContext(code, {
       __adapter__: this.#adapter,
       console,
-      require: this.#createScopedRequire(filePath),
+      require: this.#createRequire(filePath),
       module: moduleObj,
       exports: moduleExports,
     })
@@ -227,7 +277,7 @@ export class Vex {
     return moduleObj.exports
   }
 
-  #createScopedRequire(filePath: string) {
+  #createRequire(filePath: string) {
     const scopedRequire = createRequire(filePath)
 
     return (moduleId: string) => {
@@ -248,11 +298,11 @@ export class Vex {
       const sourceFile = this.#project.getSourceFile(resolvedPath)
       invariant(sourceFile, `Source file not found for: ${resolvedPath}`)
 
-      return this.#runInVm(sourceFile)
+      return this.#execute(sourceFile)
     }
   }
 
-  #getFileEmit(file: SourceFile): MemoryEmitResultFile {
+  #emitDts(file: SourceFile): MemoryEmitResultFile {
     const emit = this.#project.emitToMemory({
       emitOnlyDtsFiles: true,
       targetSourceFile: file,

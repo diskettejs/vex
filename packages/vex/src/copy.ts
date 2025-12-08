@@ -2,7 +2,7 @@ import chalk from 'chalk'
 import path from 'node:path'
 import { ts } from 'ts-morph'
 import { prettyBytes, prettyMs } from './misc.ts'
-import type { FileErrorEvent, FileMapping, ProcessResult } from './types.ts'
+import type { CompileResult, FileErrorEvent, FileMapping } from './types.ts'
 
 const rel = (p: string) => path.relative(process.cwd(), p)
 const cmd = (s: string) => chalk.cyan(`$ ${s}`)
@@ -131,7 +131,7 @@ const typeColors: Record<OutputRow['type'], CellColor> = {
 }
 
 export function renderTable(
-  results: ProcessResult[],
+  results: CompileResult[],
   totalDuration: number,
   errors: FileErrorEvent[] = [],
 ): void {

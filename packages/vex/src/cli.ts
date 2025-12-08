@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 
+import { subscribe } from '@parcel/watcher'
+import { Repeater, SlidingBuffer } from '@repeaterjs/repeater'
 import { defineCommand, runMain } from 'citty'
 import logUpdate from 'log-update'
 import { basename, relative, resolve } from 'node:path'
 import { renderDebugInfo, renderTable, renderUsage } from './copy.ts'
-import { looksLikeDirectory, writeOutput } from './misc.ts'
+import { looksLikeDirectory, tsFileFilter, writeResults } from './misc.ts'
 import {
   buildVexCompilerOptions,
   findTsConfig,
   getPackageJson,
 } from './pkg-utils.ts'
-import type { FileErrorEvent, ProcessResult } from './types.ts'
+import type { CompileResult, FileErrorEvent, VexOptions } from './types.ts'
 
 const main = defineCommand({
   meta: {
@@ -58,6 +60,11 @@ const main = defineCommand({
       alias: 'd',
       description: 'Show configuration and matched files before processing',
     },
+    watch: {
+      type: 'boolean',
+      alias: 'w',
+      description: 'Watch for file changes and recompile',
+    },
   },
 
   async run({ args, rawArgs }) {
@@ -82,9 +89,7 @@ const main = defineCommand({
     const { compilerOptions, tsconfigPath } =
       findTsConfig({ searchPath: args.tsconfig }) ?? {}
 
-    const { Vex } = await import('./vex.ts')
-
-    const vex = new Vex({
+    const vexOptions: VexOptions = {
       namespace,
       sources: source,
       compilerOptions: buildVexCompilerOptions({
@@ -92,7 +97,9 @@ const main = defineCommand({
         rootDir: source ? resolve(cwd, source) : undefined,
         outDir: resolve(cwd, args.output),
       }),
-    })
+    }
+    const { Vex } = await import('./vex.ts')
+    const vex = new Vex(vexOptions)
 
     if (args.debug) {
       renderDebugInfo({
@@ -108,17 +115,15 @@ const main = defineCommand({
       logUpdate('Discovering files...')
     }
 
-    const success: ProcessResult[] = []
-    const errors: FileErrorEvent[] = []
-    let totalDuration = 0
+    let watchErrors: FileErrorEvent[] = []
 
-    for await (const event of vex.process()) {
+    for await (const event of vex.build()) {
       switch (event.type) {
-        case 'transform':
+        case 'transpile':
           if (!args.quiet) {
             const displayPath = relative(cwd, event.file.path)
             logUpdate(
-              `[${event.file.index + 1}/${event.file.total}] Transforming: ${displayPath}`,
+              `[${event.file.index + 1}/${event.file.total}] Transpiling: ${displayPath}`,
             )
           }
           break
@@ -133,33 +138,102 @@ const main = defineCommand({
           break
 
         case 'complete':
-          success.push(event.result)
           if (!args['dry-run']) {
-            await Promise.all(
-              Object.values(event.result.outputs).map((output) =>
-                writeOutput(output),
-              ),
-            )
+            await writeResults(event.result)
           }
           break
 
-        case 'error':
-          errors.push({ ...event.file, error: event.error })
-          break
-
         case 'done':
-          totalDuration = event.totalDuration
+          watchErrors = event.errors
+
+          if (!args.quiet) {
+            logUpdate.clear()
+            renderTable(event.results, event.totalDuration, event.errors)
+          }
+
+          if (!args.watch && event.errors.length > 0) {
+            process.exit(1)
+          }
           break
       }
     }
 
-    if (!args.quiet) {
-      logUpdate.clear()
-      renderTable(success, totalDuration, errors)
-    }
+    if (args.watch) {
+      if (!source) {
+        console.error('Error: --watch requires a source directory')
+        process.exit(1)
+      }
 
-    if (errors.length > 0) {
-      process.exit(1)
+      const sourceDir = resolve(cwd, source)
+
+      const watcher = new Repeater<string>(async (push, stop) => {
+        const subscription = await subscribe(
+          sourceDir,
+          (err, events) => {
+            if (err) {
+              stop(err)
+              return
+            }
+
+            for (const e of events) {
+              if (e.type !== 'delete' && tsFileFilter.test(e.path)) {
+                push(e.path)
+              }
+            }
+          },
+          { ignore: ['**/node_modules/**', '**/.git/**'] },
+        )
+
+        await stop
+        await subscription.unsubscribe()
+      }, new SlidingBuffer(50))
+
+      process.on('SIGINT', () => watcher.return())
+      process.on('SIGTERM', () => watcher.return())
+
+      console.log('\nWatching for changes...')
+
+      for await (const changedPath of watcher) {
+        const startTime = performance.now()
+        const affectedFiles = vex.invalidate(changedPath)
+
+        if (affectedFiles.length === 0) {
+          continue
+        }
+
+        if (!args.quiet) {
+          const displayPath = relative(cwd, changedPath)
+          logUpdate(`Rebuilding: ${displayPath}`)
+        }
+
+        const results: CompileResult[] = []
+        const errors: FileErrorEvent[] = []
+
+        for (const filePath of affectedFiles) {
+          try {
+            const result = vex.compile(filePath)
+            results.push(result)
+
+            if (!args['dry-run']) {
+              await writeResults(result)
+            }
+          } catch (err) {
+            const error = err instanceof Error ? err : new Error(String(err))
+            errors.push({ path: filePath, index: 0, total: 1, error })
+          }
+        }
+
+        const duration = performance.now() - startTime
+        watchErrors = errors
+
+        if (!args.quiet) {
+          logUpdate.clear()
+          renderTable(results, duration, errors)
+          console.log('\nWatching for changes...')
+        }
+      }
+
+      process.exit(watchErrors.length > 0 ? 1 : 0)
     }
   },
 })
