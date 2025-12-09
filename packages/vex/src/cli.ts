@@ -3,16 +3,21 @@
 import { subscribe } from '@parcel/watcher'
 import { Repeater, SlidingBuffer } from '@repeaterjs/repeater'
 import { defineCommand, runMain } from 'citty'
-import logUpdate from 'log-update'
 import { basename, relative, resolve } from 'node:path'
-import { renderDebugInfo, renderTable, renderUsage } from './copy.ts'
+import {
+  renderDebugInfo,
+  renderRebuild,
+  renderTable,
+  renderUsage,
+} from './copy.ts'
+import { createLogger } from './logger.ts'
 import { looksLikeDirectory, tsFileFilter, writeResults } from './misc.ts'
 import {
   buildVexCompilerOptions,
   findTsConfig,
   getPackageJson,
 } from './pkg-utils.ts'
-import type { CompileResult, FileErrorEvent, VexOptions } from './types.ts'
+import type { FileErrorEvent, VexOptions } from './types.ts'
 
 const main = defineCommand({
   meta: {
@@ -100,6 +105,7 @@ const main = defineCommand({
     }
     const { Vex } = await import('./vex.ts')
     const vex = new Vex(vexOptions)
+    const logger = createLogger(args)
 
     if (args.debug) {
       renderDebugInfo({
@@ -111,31 +117,27 @@ const main = defineCommand({
       return
     }
 
-    if (!args.quiet) {
-      logUpdate('Discovering files...')
-    }
+    logger.update('Discovering files...')
 
     let watchErrors: FileErrorEvent[] = []
 
-    for await (const event of vex.build()) {
+    for await (const event of vex.process()) {
       switch (event.type) {
-        case 'transpile':
-          if (!args.quiet) {
-            const displayPath = relative(cwd, event.file.path)
-            logUpdate(
-              `[${event.file.index + 1}/${event.file.total}] Transpiling: ${displayPath}`,
-            )
-          }
+        case 'transpile': {
+          const displayPath = relative(cwd, event.file.path)
+          logger.update(
+            `[${event.file.index + 1}/${event.file.total}] Transpiling: ${displayPath}`,
+          )
           break
+        }
 
-        case 'start':
-          if (!args.quiet) {
-            const displayPath = relative(cwd, event.file.path)
-            logUpdate(
-              `[${event.file.index + 1}/${event.file.total}] Processing: ${displayPath}`,
-            )
-          }
+        case 'start': {
+          const displayPath = relative(cwd, event.file.path)
+          logger.update(
+            `[${event.file.index + 1}/${event.file.total}] Processing: ${displayPath}`,
+          )
           break
+        }
 
         case 'complete':
           if (!args['dry-run']) {
@@ -145,11 +147,14 @@ const main = defineCommand({
 
         case 'done':
           watchErrors = event.errors
-
-          if (!args.quiet) {
-            logUpdate.clear()
-            renderTable(event.results, event.totalDuration, event.errors)
-          }
+          logger.clear()
+          logger.render(() => {
+            if (args.watch) {
+              renderRebuild(event.results, event.totalDuration, event.errors)
+            } else {
+              renderTable(event.results, event.totalDuration, event.errors)
+            }
+          })
 
           if (!args.watch && event.errors.length > 0) {
             process.exit(1)
@@ -191,45 +196,37 @@ const main = defineCommand({
       process.on('SIGINT', () => watcher.return())
       process.on('SIGTERM', () => watcher.return())
 
-      console.log('\nWatching for changes...')
+      logger.log('\nWatching for changes...')
 
       for await (const changedPath of watcher) {
         const startTime = performance.now()
-        const affectedFiles = vex.invalidate(changedPath)
+        const displayPath = relative(cwd, changedPath)
+        logger.update(`Rebuilding: ${displayPath}`)
 
-        if (affectedFiles.length === 0) {
-          continue
-        }
+        try {
+          const results = vex.update(changedPath)
 
-        if (!args.quiet) {
-          const displayPath = relative(cwd, changedPath)
-          logUpdate(`Rebuilding: ${displayPath}`)
-        }
+          if (results.length === 0) {
+            continue
+          }
 
-        const results: CompileResult[] = []
-        const errors: FileErrorEvent[] = []
-
-        for (const filePath of affectedFiles) {
-          try {
-            const result = vex.compile(filePath)
-            results.push(result)
-
-            if (!args['dry-run']) {
+          if (!args['dry-run']) {
+            for (const result of results) {
               await writeResults(result)
             }
-          } catch (err) {
-            const error = err instanceof Error ? err : new Error(String(err))
-            errors.push({ path: filePath, index: 0, total: 1, error })
           }
-        }
 
-        const duration = performance.now() - startTime
-        watchErrors = errors
+          const duration = performance.now() - startTime
+          watchErrors = []
 
-        if (!args.quiet) {
-          logUpdate.clear()
-          renderTable(results, duration, errors)
-          console.log('\nWatching for changes...')
+          logger.render(() => renderRebuild(results, duration))
+        } catch (err) {
+          const error = err instanceof Error ? err : new Error(String(err))
+          watchErrors = [{ path: changedPath, index: 0, total: 1, error }]
+
+          logger.render(() =>
+            renderRebuild([], performance.now() - startTime, watchErrors),
+          )
         }
       }
 

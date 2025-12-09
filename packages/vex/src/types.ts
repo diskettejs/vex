@@ -32,7 +32,7 @@ export interface FileMapping {
   output: string
 }
 
-export interface CompileResult {
+export interface TransformResult {
   source: string
   outputs: {
     js: {
@@ -68,13 +68,13 @@ export interface BuildFileStartEvent {
 export interface BuildFileCompleteEvent {
   type: 'complete'
   file: FileInfo
-  result: CompileResult
+  result: TransformResult
   duration: number
 }
 
 export interface BuildCompleteEvent {
   type: 'done'
-  results: CompileResult[]
+  results: TransformResult[]
   errors: FileErrorEvent[]
   totalDuration: number
 }

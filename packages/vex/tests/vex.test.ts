@@ -1,6 +1,6 @@
 import { fileURLToPath } from 'node:url'
 import { describe, expect, test } from 'vitest'
-import type { CompileResult } from '../src/types.ts'
+import type { TransformResult } from '../src/types.ts'
 import { Vex } from '../src/vex.ts'
 
 const fixtures = (path: string) =>
@@ -12,9 +12,9 @@ function createVex() {
   })
 }
 
-async function buildAll(vex: Vex): Promise<CompileResult[]> {
-  const results: CompileResult[] = []
-  for await (const event of vex.build()) {
+async function buildAll(vex: Vex): Promise<TransformResult[]> {
+  const results: TransformResult[] = []
+  for await (const event of vex.process()) {
     if (event.type === 'complete') {
       results.push(event.result)
     }

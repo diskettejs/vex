@@ -2,7 +2,7 @@ import chalk from 'chalk'
 import path from 'node:path'
 import { ts } from 'ts-morph'
 import { prettyBytes, prettyMs } from './misc.ts'
-import type { CompileResult, FileErrorEvent, FileMapping } from './types.ts'
+import type { FileErrorEvent, FileMapping, TransformResult } from './types.ts'
 
 const rel = (p: string) => path.relative(process.cwd(), p)
 const cmd = (s: string) => chalk.cyan(`$ ${s}`)
@@ -130,8 +130,43 @@ const typeColors: Record<OutputRow['type'], CellColor> = {
   dts: 'blue',
 }
 
+export function renderRebuild(
+  results: TransformResult[],
+  duration: number,
+  errors: FileErrorEvent[] = [],
+): void {
+  if (errors.length > 0) {
+    const label = errors.map((e) => path.basename(e.path)).join(', ')
+    console.log(chalk.red(`✗ ${label}: ${errors[0]!.error.message}`))
+    return
+  }
+
+  if (results.length === 0) return
+
+  const totalSize = results.reduce(
+    (sum, r) =>
+      sum +
+      Object.values(r.outputs).reduce(
+        (s, o) => s + Buffer.byteLength(o.code, 'utf-8'),
+        0,
+      ),
+    0,
+  )
+
+  const label =
+    results.length === 1
+      ? path.basename(results[0]!.source)
+      : `${results.length} files`
+
+  const outputs = results.length * 3
+  console.log(
+    chalk.green('✓') +
+      ` ${label} → ${outputs} outputs (${prettyBytes(totalSize)}) in ${prettyMs(duration)}`,
+  )
+}
+
 export function renderTable(
-  results: CompileResult[],
+  results: TransformResult[],
   totalDuration: number,
   errors: FileErrorEvent[] = [],
 ): void {

@@ -34,6 +34,9 @@ vex "src" --output build
 # Preview what would be processed without writing files
 vex "src" --dry-run
 
+# Watch for changes and recompile
+vex "src" --watch
+
 # Use a specific tsconfig
 vex "src" --tsconfig tsconfig.build.json
 
@@ -43,15 +46,15 @@ vex "src/components" -o dist/css -n
 
 ### Options
 
-| Option                  | Alias | Description                                                      | Default |
-| ----------------------- | ----- | ---------------------------------------------------------------- | ------- |
-| `--output <dir>`        | `-o`  | Directory for compiled CSS, JS, and .d.ts output                 | `dist`  |
-| `--namespace <name>`    | `-p`  | Namespace for CSS scoping                                        | \*      |
-| `--tsconfig <path>`     |       | Path to tsconfig.json for TypeScript resolution                  |         |
-| `--dry-run`             | `-n`  | Process files without writing output                             |         |
-| `--quiet`               | `-q`  | Suppress non-error output                                        |         |
-| `--log-level <level>`   | `-l`  | Output verbosity: `normal` (table) or `verbose` (detailed paths) | `normal`|
-| `--debug`               | `-d`  | Show configuration and matched files before processing           |         |
+| Option               | Alias | Description                                            | Default |
+| -------------------- | ----- | ------------------------------------------------------ | ------- |
+| `--output <dir>`     | `-o`  | Directory for compiled CSS, JS, and .d.ts output       | `dist`  |
+| `--namespace <name>` |       | Namespace for CSS scoping                              | \*      |
+| `--tsconfig <path>`  | `-p`  | Path to tsconfig.json for TypeScript resolution        |         |
+| `--dry-run`          | `-n`  | Process files without writing output                   |         |
+| `--watch`            | `-w`  | Watch for file changes and recompile                   |         |
+| `--quiet`            | `-q`  | Suppress non-error output                              |         |
+| `--debug`            | `-d`  | Show configuration and matched files before processing |         |
 
 \* Defaults to `name` in package.json, or the current directory name
 
@@ -91,29 +94,36 @@ src/                          dist/
 import { Vex } from '@diskette/vex'
 
 const vex = new Vex({
-  tsconfig: 'tsconfig.json',
+  namespace: 'my-app',
   compilerOptions: { outDir: 'dist' },
 })
 
-await vex.addSource('src/styles.css.ts')
+vex.addSource('src/styles.css.ts')
 
-const { results, errors, totalDuration } = await vex.processFiles({
-  onFileStart({ path, index, total }) {
-    console.log(`Processing ${path}`)
-  },
-  onFileComplete({ result }) {
-    // result.outputs.css, result.outputs.js, result.outputs.dts
-  },
-  onError({ path, error }) {
-    console.error(`Failed: ${path}`, error)
-  },
-})
+// Full build with async iteration
+for await (const event of vex.build()) {
+  switch (event.type) {
+    case 'transpile':
+      console.log(`Transpiling: ${event.file.path}`)
+      break
+    case 'complete':
+      // event.result.outputs.css, .js, .dts
+      break
+    case 'done':
+      console.log(`Built ${event.results.length} files in ${event.totalDuration}ms`)
+      break
+  }
+}
+
+// Or compile a single file
+const result = vex.compile('src/styles.css.ts')
+// result.outputs.css, result.outputs.js, result.outputs.dts
 ```
 
 ## How It Works
 
-1. **Transform** - Wraps source with vanilla-extract file scope, transpiles to CommonJS via esbuild, and executes in a Node VM
-2. **Capture** - Collects CSS definitions, class names, and compositions during VM execution using a custom vanilla-extract adapter
+1. **Transpile** - Wraps source with vanilla-extract file scope and transpiles to CommonJS via TypeScript
+2. **Execute** - Runs transpiled code in a Node VM with a custom adapter that captures CSS definitions
 3. **Output** - Generates `.css` from collected styles, `.js` with serialized exports, and `.d.ts` declarations
 
 ## License

@@ -17,10 +17,10 @@ import {
 } from './misc.ts'
 import type {
   BuildEvent,
-  CompileResult,
   FileErrorEvent,
   FileInfo,
   FileMapping,
+  TransformResult,
   VexOptions,
 } from './types.ts'
 
@@ -75,7 +75,7 @@ export class Vex {
     this.#project.addSourceFileAtPathIfExists(path)
   }
 
-  build(): Repeater<BuildEvent> {
+  process(): Repeater<BuildEvent> {
     return new Repeater(async (push, stop) => {
       this.#project.resolveSourceFileDependencies()
       const sourceFiles = this.#project.getSourceFiles()
@@ -101,7 +101,7 @@ export class Vex {
       }
 
       const startTime = performance.now()
-      const results: CompileResult[] = []
+      const results: TransformResult[] = []
       const errors: FileErrorEvent[] = []
 
       for (let index = 0; index < files.length; index++) {
@@ -114,7 +114,7 @@ export class Vex {
         const fileStartTime = performance.now()
 
         try {
-          const result = this.#compileSource(file)
+          const result = this.#transformSource(file)
           const duration = performance.now() - fileStartTime
 
           results.push(result)
@@ -136,47 +136,59 @@ export class Vex {
   }
 
   /**
-   * Invalidates a changed file and returns affected `.css.ts` files.
-   * - Refreshes the file from disk and re-transpiles it.
-   * - If the file is a `.css.ts` file, returns it directly.
-   * - Otherwise, returns `.css.ts` files that directly import this file.
+   * Syncs a changed file and transforms all affected `.css.ts` files.
    */
-  invalidate(changedPath: string): string[] {
-    const file = this.#project.getSourceFile(changedPath)
+  update(changedPath: string): TransformResult[] {
+    const file = this.#syncFile(changedPath)
     if (!file) return []
 
-    file.refreshFromFileSystemSync()
-
-    // Re-transpile the changed file
     const isCssFile = cssFileFilter.test(changedPath)
     this.#transpiled.set(
       changedPath,
       this.#transpile(file, { wrapInScope: isCssFile }),
     )
-    if (isCssFile) {
-      return [changedPath]
+
+    const affected = isCssFile
+      ? [file]
+      : file
+          .getReferencingSourceFiles()
+          .filter((sf) => cssFileFilter.test(sf.getFilePath()))
+
+    return affected.map((sf) => this.#transformSource(sf))
+  }
+
+  #syncFile(path: string): SourceFile | undefined {
+    const existing = this.#project.getSourceFile(path)
+
+    if (existing) {
+      existing.refreshFromFileSystemSync()
+      return existing
     }
 
-    const files: string[] = []
-    // Find .css.ts files that directly import this file
-    for (const sf of file.getReferencingSourceFiles()) {
-      const path = sf.getFilePath()
-      if (cssFileFilter.test(path)) {
-        files.push(path)
+    // New file - add to project
+    this.#project.addSourceFileAtPathIfExists(path)
+    const file = this.#project.getSourceFile(path)
+    if (!file) return undefined
+
+    this.#project.resolveSourceFileDependencies()
+    this.#transpileDeps(file)
+
+    return file
+  }
+
+  #transpileDeps(file: SourceFile): void {
+    for (const dep of file.getReferencedSourceFiles()) {
+      const depPath = dep.getFilePath()
+      if (!this.#transpiled.has(depPath)) {
+        this.#transpiled.set(
+          depPath,
+          this.#transpile(dep, { wrapInScope: cssFileFilter.test(depPath) }),
+        )
       }
     }
-
-    return files
   }
 
-  compile(filePath: string): CompileResult {
-    const file = this.#project.getSourceFile(filePath)
-    invariant(file, `Source file not found: ${filePath}`)
-
-    return this.#compileSource(file)
-  }
-
-  #compileSource(file: SourceFile): CompileResult {
+  #transformSource(file: SourceFile): TransformResult {
     this.#adapter.reset()
 
     const exports = this.#execute(file)
