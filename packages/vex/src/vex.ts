@@ -136,11 +136,14 @@ export class Vex {
   }
 
   /**
-   * Syncs a changed file and transforms all affected `.css.ts` files.
+   * Syncs an existing file from the filesystem and re-transpiles it.
+   * Use for watch mode 'update' events.
    */
-  update(changedPath: string): TransformResult[] {
-    const file = this.#syncFile(changedPath)
+  sync(changedPath: string): TransformResult[] {
+    const file = this.#project.getSourceFile(changedPath)
     if (!file) return []
+
+    file.refreshFromFileSystemSync()
 
     const isCssFile = cssFileFilter.test(changedPath)
     this.#transpiled.set(
@@ -157,23 +160,35 @@ export class Vex {
     return affected.map((sf) => this.#transformSource(sf))
   }
 
-  #syncFile(path: string): SourceFile | undefined {
-    const existing = this.#project.getSourceFile(path)
-
-    if (existing) {
-      existing.refreshFromFileSystemSync()
-      return existing
+  /**
+   * Adds a new .css.ts file to the project and transforms it.
+   * Use for watch mode 'create' events.
+   */
+  add(path: string): TransformResult | undefined {
+    if (this.#project.getSourceFile(path)) {
+      return undefined
     }
 
-    // New file - add to project
     this.#project.addSourceFileAtPathIfExists(path)
     const file = this.#project.getSourceFile(path)
     if (!file) return undefined
 
-    this.#project.resolveSourceFileDependencies()
     this.#transpileDeps(file)
 
-    return file
+    this.#transpiled.set(path, this.#transpile(file, { wrapInScope: true }))
+
+    return this.#transformSource(file)
+  }
+
+  remove(deletedPath: string): SourceFile | undefined {
+    const sourceFile = this.#project.getSourceFile(deletedPath)
+    if (sourceFile) {
+      const path = sourceFile.getFilePath()
+      this.#project.removeSourceFile(sourceFile)
+      this.#transpiled.delete(path)
+    }
+
+    return sourceFile
   }
 
   #transpileDeps(file: SourceFile): void {

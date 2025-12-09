@@ -111,6 +111,9 @@ export function prettyMs(ms: number): string {
   return `${seconds.toFixed(1)}s`
 }
 
-export async function writeResults(result: TransformResult): Promise<void> {
-  await Promise.all(Object.values(result.outputs).map(writeOutput))
+export async function writeResults(
+  results: TransformResult | TransformResult[],
+): Promise<void> {
+  const arr = Array.isArray(results) ? results : [results]
+  await Promise.all(arr.flatMap((r) => Object.values(r.outputs).map(writeOutput)))
 }

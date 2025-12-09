@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { subscribe } from '@parcel/watcher'
+import { subscribe, type Event as WatcherEvent } from '@parcel/watcher'
 import { Repeater, SlidingBuffer } from '@repeaterjs/repeater'
 import { defineCommand, runMain } from 'citty'
 import { basename, relative, resolve } from 'node:path'
@@ -11,13 +11,18 @@ import {
   renderUsage,
 } from './copy.ts'
 import { createLogger } from './logger.ts'
-import { looksLikeDirectory, tsFileFilter, writeResults } from './misc.ts'
+import {
+  cssFileFilter,
+  looksLikeDirectory,
+  tsFileFilter,
+  writeResults,
+} from './misc.ts'
 import {
   buildVexCompilerOptions,
   findTsConfig,
   getPackageJson,
 } from './pkg-utils.ts'
-import type { FileErrorEvent, VexOptions } from './types.ts'
+import type { FileErrorEvent, TransformResult, VexOptions } from './types.ts'
 
 const main = defineCommand({
   meta: {
@@ -171,7 +176,9 @@ const main = defineCommand({
 
       const sourceDir = resolve(cwd, source)
 
-      const watcher = new Repeater<string>(async (push, stop) => {
+      const watcher = new Repeater<WatcherEvent>(async (push, stop) => {
+        logger.log('\nWatching for changes...')
+
         const subscription = await subscribe(
           sourceDir,
           (err, events) => {
@@ -180,9 +187,9 @@ const main = defineCommand({
               return
             }
 
-            for (const e of events) {
-              if (e.type !== 'delete' && tsFileFilter.test(e.path)) {
-                push(e.path)
+            for (const event of events) {
+              if (tsFileFilter.test(event.path)) {
+                push(event)
               }
             }
           },
@@ -196,24 +203,31 @@ const main = defineCommand({
       process.on('SIGINT', () => watcher.return())
       process.on('SIGTERM', () => watcher.return())
 
-      logger.log('\nWatching for changes...')
-
-      for await (const changedPath of watcher) {
+      for await (const event of watcher) {
         const startTime = performance.now()
-        const displayPath = relative(cwd, changedPath)
+        const displayPath = relative(cwd, event.path)
         logger.update(`Rebuilding: ${displayPath}`)
 
         try {
-          const results = vex.update(changedPath)
+          let results: TransformResult[] = []
 
-          if (results.length === 0) {
-            continue
+          switch (event.type) {
+            case 'create':
+              if (cssFileFilter.test(event.path)) {
+                const result = vex.add(event.path)
+                if (result) results = [result]
+              }
+              break
+            case 'update':
+              results = vex.sync(event.path)
+              break
+            case 'delete':
+              vex.remove(event.path)
+              break
           }
 
-          if (!args['dry-run']) {
-            for (const result of results) {
-              await writeResults(result)
-            }
+          if (results.length && !args['dry-run']) {
+            await writeResults(results)
           }
 
           const duration = performance.now() - startTime
@@ -222,7 +236,7 @@ const main = defineCommand({
           logger.render(() => renderRebuild(results, duration))
         } catch (err) {
           const error = err instanceof Error ? err : new Error(String(err))
-          watchErrors = [{ path: changedPath, index: 0, total: 1, error }]
+          watchErrors = [{ path: event.path, index: 0, total: 1, error }]
 
           logger.render(() =>
             renderRebuild([], performance.now() - startTime, watchErrors),
