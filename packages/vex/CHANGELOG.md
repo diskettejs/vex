@@ -1,5 +1,12 @@
 # @diskette/vex
 
+## 0.19.0
+
+### Minor Changes
+
+- 3ecb611: watch mode improvements
+- 45a5e2d: improve watch mode handling new files and updates
+
 ## 0.18.0
 
 ### Minor Changes
