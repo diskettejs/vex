@@ -13,6 +13,7 @@ import {
 import { createLogger } from './logger.ts'
 import {
   cssFileFilter,
+  isIdentOption,
   looksLikeDirectory,
   tsFileFilter,
   writeResults,
@@ -22,7 +23,12 @@ import {
   findTsConfig,
   getPackageJson,
 } from './pkg-utils.ts'
-import type { FileErrorEvent, TransformResult, VexOptions } from './types.ts'
+import type {
+  FileErrorEvent,
+  IdentifierOption,
+  TransformResult,
+  VexOptions,
+} from './types.ts'
 
 const main = defineCommand({
   meta: {
@@ -75,6 +81,13 @@ const main = defineCommand({
       alias: 'w',
       description: 'Watch for file changes and recompile',
     },
+    identifier: {
+      type: 'string',
+      default: 'short',
+      description:
+        'Formatting of identifiers (e.g. class names, CSS Vars, etc). short or debug',
+      valueHint: 'debug',
+    },
   },
 
   async run({ args, rawArgs }) {
@@ -98,10 +111,10 @@ const main = defineCommand({
 
     const { compilerOptions, tsconfigPath } =
       findTsConfig({ searchPath: args.tsconfig }) ?? {}
-
     const vexOptions: VexOptions = {
       namespace,
       sources: source,
+      identifier: isIdentOption(args.identifier) ? args.identifier : 'short',
       compilerOptions: buildVexCompilerOptions({
         ...compilerOptions,
         rootDir: source ? resolve(cwd, source) : undefined,

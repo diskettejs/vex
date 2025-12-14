@@ -1,7 +1,12 @@
 import fs from 'fs/promises'
 import path, { dirname, join, relative } from 'path'
 import { type SourceFile } from 'ts-morph'
-import type { FileScope, OutputPaths, TransformResult } from './types.ts'
+import type {
+  FileScope,
+  IdentifierOption,
+  OutputPaths,
+  TransformResult,
+} from './types.ts'
 
 export const cssFileFilter: RegExp = /\.css\.(js|cjs|mjs|jsx|ts|tsx)(\?used)?$/
 export const tsFileFilter: RegExp = /\.(ts|tsx|mts|cts)$/
@@ -115,5 +120,11 @@ export async function writeResults(
   results: TransformResult | TransformResult[],
 ): Promise<void> {
   const arr = Array.isArray(results) ? results : [results]
-  await Promise.all(arr.flatMap((r) => Object.values(r.outputs).map(writeOutput)))
+  await Promise.all(
+    arr.flatMap((r) => Object.values(r.outputs).map(writeOutput)),
+  )
+}
+
+export function isIdentOption(value: unknown): value is IdentifierOption {
+  return value === 'debug' || value === 'short'
 }
