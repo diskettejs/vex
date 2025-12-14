@@ -56,13 +56,15 @@ export type CellColor =
 export interface TableCell {
   value: string
   color?: CellColor
+  align?: 'left' | 'right'
 }
 
 export interface Table {
   headers: string[]
   rows: TableCell[][]
   footer?: {
-    success: { text: string; stats?: string }
+    cells: TableCell[]
+    duration?: string
     errors?: { label: string; message: string }[]
   }
 }
@@ -86,13 +88,21 @@ export function renderTableData(table: Table): void {
   )
 
   const headerLine = headers
-    .map((h, i) => chalk.bold(h.padEnd(colWidths[i] ?? 0)))
+    .map((h, i) => {
+      const width = colWidths[i] ?? 0
+      const align = rows[0]?.[i]?.align
+      return chalk.bold(align === 'right' ? h.padStart(width) : h.padEnd(width))
+    })
     .join('  ')
   lines.push(headerLine)
 
   for (const row of rows) {
     const cells = row.map((cell, i) => {
-      const padded = cell.value.padEnd(colWidths[i] ?? 0)
+      const width = colWidths[i] ?? 0
+      const padded =
+        cell.align === 'right'
+          ? cell.value.padStart(width)
+          : cell.value.padEnd(width)
       return cell.color ? colorFns[cell.color](padded) : padded
     })
     lines.push(cells.join('  '))
@@ -100,14 +110,22 @@ export function renderTableData(table: Table): void {
 
   if (footer) {
     const totalWidth =
-      colWidths.reduce((sum, w) => sum + w, 0) + (colWidths.length - 1) * 2 + 10
+      colWidths.reduce((sum, w) => sum + w, 0) + (colWidths.length - 1) * 2
     lines.push(chalk.dim('─'.repeat(totalWidth)))
 
-    const successText = chalk.green(`✓ ${footer.success.text}`)
-    const statsText = footer.success.stats
-      ? chalk.dim(footer.success.stats)
-      : ''
-    lines.push(statsText ? `${successText}  ${statsText}` : successText)
+    // Render footer cells aligned with columns
+    const footerCells = footer.cells.map((cell, i) => {
+      const width = colWidths[i] ?? 0
+      const padded =
+        cell.align === 'right'
+          ? cell.value.padStart(width)
+          : cell.value.padEnd(width)
+      return cell.color ? colorFns[cell.color](padded) : padded
+    })
+
+    const footerLine = footerCells.join('  ')
+    const durationText = footer.duration ? `  ${chalk.dim(footer.duration)}` : ''
+    lines.push(footerLine + durationText)
 
     if (footer.errors && footer.errors.length > 0) {
       lines.push(
@@ -189,13 +207,15 @@ export function renderTable(
     rows: outputRows.map((row) => [
       { value: row.path },
       { value: row.type, color: typeColors[row.type] },
-      { value: prettyBytes(row.size), color: 'dim' },
+      { value: prettyBytes(row.size), color: 'dim', align: 'right' },
     ]),
     footer: {
-      success: {
-        text: `${outputRows.length} files`,
-        stats: `${prettyBytes(totalSize)}  ${prettyMs(totalDuration)}`,
-      },
+      cells: [
+        { value: `✓ ${outputRows.length} files`, color: 'green' },
+        { value: '' },
+        { value: prettyBytes(totalSize), color: 'dim', align: 'right' },
+      ],
+      duration: prettyMs(totalDuration),
       errors: errors.map(({ path: p, error }) => ({
         label: rel(p),
         message: error.message,
