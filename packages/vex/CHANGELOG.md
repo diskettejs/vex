@@ -1,5 +1,15 @@
 # @diskette/vex
 
+## 0.20.0
+
+### Minor Changes
+
+- ba7408c: add identifier CLI flag
+
+### Patch Changes
+
+- c045600: fix table footer formatting
+
 ## 0.19.0
 
 ### Minor Changes
